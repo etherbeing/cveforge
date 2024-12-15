@@ -1,0 +1,6 @@
+**__pycache__
+.git
+.github
+.vscode
+/assets/cvelistV5/
+/exploits/
