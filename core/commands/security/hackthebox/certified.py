@@ -1,29 +1,29 @@
-import argparse
-from pathlib import Path
 import struct
+from pathlib import Path
 from typing import Any, Literal
-from rich.table import Table, Column
+
 from rich.markdown import Markdown
+from rich.table import Column, Table
 
 from core.context import Context
+from utils.args import ForgeParser
 
 
-class pol_reader_parser(argparse.ArgumentParser):
+class pol_reader_parser(ForgeParser):
     """Argument parser for pol reader"""
-    file: str
+
     MEDIA_UPLOAD_URL = Context.ASSETS_BASE_URL + "/pol/"
 
-    def __init__(self, *args, **kwargs): # type: ignore
-        super().__init__(*args, **kwargs) # type: ignore
-        self.add_argument("file")
+    def setUp(self, *args: Any, **kwargs: Any) -> None:
+        self.add_argument("file", help="Registry .pol file to be viewed")
 
 
-def pol_reader(namespace: argparse.Namespace):
+def pol_reader(context: Context, file: Path):
     """
     Reader for windows POL files as per described in:
     https://learn.microsoft.com/en-us/previous-versions/windows/desktop/policy/registry-policy-file-format
     """
-    file = Path(namespace.file).absolute()
+    file = file.absolute()
     if not file.exists():
         return None
     data = None
@@ -94,7 +94,7 @@ def pol_reader(namespace: argparse.Namespace):
             # the idea was to convert the current size of the size payload which is 5 into a normal DWORD or integer payload which is
             # 4 bytes long, so for it we are just stripping the first byte shamelessly :-) also we tested if the first byte was a sign
             # byte or something but we have no luck, neither changing the endianess or anything
-            
+
             int_size = int.from_bytes(int_byte[1:], "little")  # 972
             walk_props["rows"][walk_props["row_index"]][
                 "size"
@@ -129,6 +129,12 @@ def pol_reader(namespace: argparse.Namespace):
             row.get("value").decode(),
             row.get("type").decode(),
             str(row.get("size")),
-            Markdown(f"[Download file](http://localhost:8123{pol_reader_parser.MEDIA_UPLOAD_URL}{index + 1})") if row.get("size") else "no data"
+            (
+                Markdown(
+                    f"[Download file](http://localhost:8123{pol_reader_parser.MEDIA_UPLOAD_URL}{index + 1})"
+                )
+                if row.get("size")
+                else "no data"
+            ),
         )
     return table

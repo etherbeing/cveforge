@@ -1,7 +1,15 @@
+from core.commands.run import tcve_command
+from core.context import Context
 from core.io import OUT
 from utils.graphic import get_banner
 
 
-def banner():
-    OUT.print(get_banner(), new_line_start=True, justify="center", no_wrap=True, width=OUT.width)
-    
+@tcve_command("banner")
+def banner(context: Context):
+    OUT.print(
+        get_banner(context),
+        new_line_start=True,
+        justify="center",
+        no_wrap=True,
+        width=OUT.width,
+    )

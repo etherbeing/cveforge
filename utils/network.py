@@ -1,10 +1,12 @@
-import psutil
 from typing import Optional, TypedDict
+
+import psutil
 
 
 class TIFace(TypedDict):
-    is_up: bool
+    is_up: Optional[bool]
     details: list[dict[str, Optional[str]]]
+
 
 def get_ifaces() -> dict[str, TIFace]:
     """TODO"""
@@ -13,7 +15,7 @@ def get_ifaces() -> dict[str, TIFace]:
     net_if_stats = psutil.net_if_stats()
 
     for iface, addrs in net_if_addrs.items():
-        interfaces[iface] = { # type: ignore
+        interfaces[iface] = {
             "is_up": net_if_stats[iface].isup if iface in net_if_stats else None,
             "details": [],
         }

@@ -1,0 +1,6 @@
+{
+  "type": {
+    "privilege_escalation": true,
+    "local": true
+  }
+}

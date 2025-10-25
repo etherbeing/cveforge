@@ -1,11 +1,14 @@
-import os
 import json
+import os
+
 from sqlalchemy.exc import OperationalError
+
 from core.context import Context
-from core.database.base import engine, Base, SessionLocal
+from core.database.base import Base, engine
 from core.database.types.cve import TypedCVE
 from core.io import OUT
-from core.database.models.cve import CVE
+
+# from core.database.models.cve import CVE
 
 
 def load_cves():
@@ -21,15 +24,16 @@ def load_cves():
                         cve = TypedCVE(**json.loads(file.read()))
                         yield cve
 
+
 def store_cve_in_db():
     """Store all the cve returned by the load cves function into the configured db"""
-    for cve in load_cves():
-        with SessionLocal() as session:
-            session.add(
-                CVE(
-                    **cve
-                )
-            )
+    # for cve in load_cves():
+    #     with SessionLocal() as session:
+    #         session.add(
+    #             CVE(
+    #                 **cve
+    #             )
+    #         )
 
 
 def init_db():

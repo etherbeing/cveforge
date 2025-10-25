@@ -1,36 +1,103 @@
-#!/usr/bin/env python3
 """
 Entrypoint and executable for CVE Forge
 author: etherbeing
 license: Apache
 """
 
+import logging
 import multiprocessing
+
+from core.commands.types import TCVECommand
 from core.context import Context
-# from core.io import OUT
+from core.exceptions.ipc import ForgeException
+from core.io import OUT
 from entrypoint import main
 from utils.development import Watcher
 
-
-
 if __name__ == "__main__":
-    live_reload = Watcher()
-    watcher = live_reload.start(Context.BASE_DIR)
-    while True:
-        child = multiprocessing.Process(target=main)
-        child.start()
-        live_reload.live_reload = lambda event: live_reload.do_reload(event, child)
-        while (
-            True
-        ):  # needed to avoid respawning the processes if an accidental Keyboard interrupt reach 
-            # here
-            try:
-                child.join() # in case the live reload exited normally for some reason
-                break  # just run once but Keyboard interrupts is ignored
-            except KeyboardInterrupt:
-                continue
-        if child.exitcode == Context.EC_RELOAD or live_reload.reload:
-            live_reload.reload = False
-            continue  # respawn the child process
+    with Context() as context:
+        logging.basicConfig(
+            level=context.LOG_LEVEL,
+            format=context.LOG_FORMAT,
+            datefmt=context.LOG_DATE_FTM,
+        )
+        if context.argv_command:
+            context.configure_logging()
+            logging.debug("Running command directly from the command line")
+            args = []
+            if len(context.argv_command) > 1:
+                args = context.argv_command[1:]
+            base = context.argv_command[0]
+            local_commands: dict[str, TCVECommand] = context.get_commands()
+            cve_command = local_commands.get(
+                base,
+            )
+            if cve_command:
+                logging.debug("Running command %s with args %s", cve_command, args)
+                command_method = cve_command.get("command")
+                if not command_method:
+                    raise DeprecationWarning(f"{cve_command.get("name")} method wasn't loaded as you're using a deprecated feature")
+                else:
+                    command_method.run(context, extra_args=args)
+                exit(context.RT_OK)
+            else:
+                OUT.print(
+                    f"[red]Invalid command given, {context.argv_command} is not recognized as an internal command of CVE Forge[/red]"
+                )
+                exit(context.RT_INVALID_COMMAND)
+        pipe = multiprocessing.Pipe()
+        if not context.LIVE:
+            live_reload = Watcher(pipe[1], context=context)
+            watcher = live_reload.start(context.BASE_DIR)
         else:
-            break
+            live_reload = None
+            watcher = None
+        while True:
+            # Running the main process in a child process to be able to handle live reload and other IPC events
+            child = multiprocessing.Process(
+                target=main,
+                name=context.SOFTWARE_NAME,
+                daemon=False,
+                kwargs={"pipe": pipe[1], "context": context},
+            )
+            child.start()
+            if live_reload:
+                live_reload.live_reload = lambda event: live_reload.do_reload(event, child)  # type: ignore
+            logging.debug(
+                "Child process ended with code %s, now processing the exit status",
+                child.exitcode,
+            )
+            try:
+                child.join()
+                ipc_object = pipe[0].recv()  # Block here until IPC data is received
+            except EOFError:
+                ipc_object = None
+            except KeyboardInterrupt:
+                break
+            close_normally_attempts = 3
+
+            for _ in range(close_normally_attempts):
+                child.terminate()
+                if not child.is_alive():
+                    break
+            else:
+                child.kill()
+
+            if isinstance(ipc_object, ForgeException):
+                if ipc_object.code == context.EC_RELOAD and live_reload:
+                    logging.debug(
+                        "Child exit code seems to be a request to reload, relaunching program again"
+                    )
+                    live_reload.reload = True
+                    continue  # re-spawn the child process
+                else:
+                    logging.debug(
+                        "Child exit code, processed successfully exiting now..."
+                    )
+                    OUT.print(
+                        "[green] 🚀💻 See you later, I hope you had happy hacking! 😄[/green]"
+                    )
+                    break
+            else:
+                continue  # Only ForgeException is allowed to finish the program
+        exit(context.RT_OK)

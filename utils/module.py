@@ -1,24 +1,23 @@
 """
-Handle dynamic module loading for better performance 
+Handle dynamic module loading for better performance
 """
-from functools import lru_cache
+
 import importlib
-import importlib.util
+import logging
 import sys
+from functools import lru_cache
 
-
-# def load_exploit(exploit_name: str):
-#     pass
 
 @lru_cache
 def load_module(module: str, name: str):
     """
-        Dynamically load and cache 
+    Dynamically load and cache
     """
     try:
         package = sys.modules.get(module)
         if not package:
             package = importlib.import_module(module)
-        return getattr(package, name)
-    except (ImportError, AttributeError):
+        return getattr(package, name, None)
+    except (ImportError, AttributeError, FileNotFoundError) as ex:
+        logging.debug("You were searching for %s in %s but %s", name, module, ex)
         return None

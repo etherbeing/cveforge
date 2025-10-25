@@ -17,6 +17,18 @@ rich = "^13.9.4"
 psutil = "^6.1.0"
 watchdog = "^6.0.0"
 pathspec = "^0.12.1"
+packaging = "^24.2"
+xmltodict = "^0.14.2"
+fastapi = "^0.115.6"
+uvicorn = { extras = ["standard"], version = "^0.34.0" }
+websockets = "^14.1"
+graphql-core = "^3.2.5"
+cryptography = "^44.0.0"
+sympy = "^1.13.3"
+pillow = "^11.0.0"
+numpy = "^2.2.3"
+beautifulsoup4 = "^4.13.4"
+openpyxl = "^3.1.5"
 
 
 [build-system]
