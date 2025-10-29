@@ -8,6 +8,7 @@ import getpass
 import logging
 import os
 import platform
+import shlex
 import socket
 import subprocess
 import sys
@@ -39,7 +40,7 @@ from utils.graphic import get_banner
 
 
 class CustomCompleter(NestedCompleter):
-    "Handle more complex and custom completion"
+    """Handle more complex and custom completion"""
 
     def __init__(self, *args: Any, context: Context, **kwargs: Any):
         self.context = context
@@ -296,10 +297,10 @@ def main(pipe: Connection, context: Context) -> None:
             ).strip()
             if not command:
                 continue
-            base = command.split(" ", maxsplit=1)
+            base = shlex.split(command)
             args = None
             if len(base) > 1:
-                args = base[1].split(" ")
+                args = base[1:]
             base = base[0]
             cve_command: Optional[TCVECommand] = local_commands.get(base.strip(), None)
             if not cve_command and base.startswith(
@@ -359,5 +360,5 @@ def main(pipe: Connection, context: Context) -> None:
                 "Catching exit attempt with code %s (DEPRECATED please move to ForgeException IPC)",
                 ex,
             )
-        except:  # pylint: disable=bare-except
+        except Exception:  # pylint: disable=bare-except
             OUT.print_exception()

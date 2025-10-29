@@ -19,8 +19,10 @@ class tcve_command:
     def __init__(
         self,
         name: str,
-        parser: type[ForgeParser]|None = None,
-        categories: list[str] = [], # list of categories this command belongs to
+        parser: type[ForgeParser] | None = None,
+        categories: (
+            list[str] | None
+        ) = None,  # list of categories this command belongs to
         post_process: Optional[Callable[..., Any]] = None,
         decorated_method: Optional[Callable[..., Any]] = None,
     ) -> None:
@@ -79,7 +81,10 @@ class tcve_command:
         return result
 
     def __call__(
-        self, decorated_method: Callable[..., Any]|None=None, *args: Any, **kwds: Any
+        self,
+        decorated_method: Callable[..., Any] | None = None,
+        *args: Any,
+        **kwds: Any
     ) -> Any:
         if self._decorated_method:
             return self._decorated_method(*args, **kwds)
@@ -98,9 +103,17 @@ class tcve_exploit:
     """
     An exploit is an specific type of command that runs under the exploit namespace the name here would be a parser added to the exploit namespace
     """
-    def __init__(self, name: str, parser: type[ForgeParser] | None = None, categories: list[str] = [], post_process: Callable[..., Any] | None = None, decorated_method: Callable[..., Any] | None = None) -> None:
+
+    def __init__(
+        self,
+        name: str,
+        parser: type[ForgeParser] | None = None,
+        categories: list[str] | None = None,
+        post_process: Callable[..., Any] | None = None,
+        decorated_method: Callable[..., Any] | None = None,
+    ) -> None:
         ExploitParser.register_exploit(name, parser, self)
-        
+
         self._decorated_method: Optional[Callable[..., Any]] = decorated_method
         self._categories = categories
         self._namespace: Optional[Namespace] = None
@@ -135,16 +148,22 @@ class tcve_exploit:
             self._namespace = self._parser.parse_args(extra_args or args)
             parsed_kwargs = dict(self._namespace._get_kwargs())
             if parsed_kwargs["option"] == "run":
-                pass # handle run option
+                pass  # handle run option
             elif parsed_kwargs["option"] == "search":
-                pass # handle search option
-            del parsed_kwargs["option"] # remove it from the parsed kwargs as the decorated method doesn't care about it
-            command_name, command_args = list(parsed_kwargs.items())[0] # from the items the first one is expected to be the exploit been called
+                pass  # handle search option
+            del parsed_kwargs[
+                "option"
+            ]  # remove it from the parsed kwargs as the decorated method doesn't care about it
+            command_name, command_args = list(parsed_kwargs.items())[
+                0
+            ]  # from the items the first one is expected to be the exploit been called
             command_parser = ExploitParser.get_exploit_parser(command_name)
             if command_parser:
                 ps = command_parser()
                 namespace = ps.parse_args(command_args[1:])
-                result = self._decorated_method(context, **dict(namespace._get_kwargs()))
+                result = self._decorated_method(
+                    context, **dict(namespace._get_kwargs())
+                )
             else:
                 result = self._decorated_method(context)
         elif self._decorated_method:
@@ -153,10 +172,13 @@ class tcve_exploit:
             raise ForgeException("No module was passed when decorating")
         if self.post_process:
             self.post_process(result)
-        return result    
-    
+        return result
+
     def __call__(
-        self, decorated_method: Callable[..., Any]|None=None, *args: Any, **kwds: Any
+        self,
+        decorated_method: Callable[..., Any] | None = None,
+        *args: Any,
+        **kwds: Any
     ) -> Any:
         if self._decorated_method:
             return self._decorated_method(decorated_method, *args, **kwds)
