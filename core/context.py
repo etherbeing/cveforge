@@ -3,25 +3,27 @@ Handle global context for the current user, target host, port, arguments passed 
 """
 
 import argparse
-from functools import lru_cache
 import getpass
 import logging
+from multiprocessing import Process
 import os
 import platform
 import sys
 import threading
+from functools import lru_cache
 from importlib import import_module
 from logging import basicConfig
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Optional, Self, TypedDict
 
-from core.commands.types import TCVECommand
+from core.commands.command_types import TCVECommand
 
 try:
     from multiprocessing.connection import Connection
 except ImportError:
     from multiprocessing.connection import PipeConnection as Connection # type: ignore
+
 from tomllib import load
 
 from prompt_toolkit import PromptSession
@@ -112,13 +114,19 @@ the CVE Forge software and is mostly useful for when running quick commands.
             help="Log content to standard output",
             default=False,
         )
+        self.add_argument(
+            "--http-timeout",
+            help="Set the general HTTP timeout for the Forge",
+            default=30,
+            type=int
+        )
 
 class CommandContext(TypedDict):
     current_command: TCVECommand|None
     remote_path: str|None
 
 class Context:
-    "Store all the settings and anything that is needed to be used global"
+    """Store all the settings and anything that is needed to be used global"""
     _singleton_instance = None
     _lock: threading.Lock = threading.Lock()
     log_to_stdout: bool = False
@@ -131,9 +139,6 @@ class Context:
         return cls._singleton_instance
 
     def __init__(self):
-        from core.network.forge.cveforge.client import (  # pylint: disable=import-outside-toplevel
-            ForgeNetworkClient,
-        )
         logging.debug(
             "Initializing singleton Context instance, only one in the logs of these message should exist"
         )
@@ -144,7 +149,8 @@ class Context:
         self.LOG_LEVEL = namespace.log_level
         self.enable_sudo_rce = namespace.enable_rce
         self.log_to_stdout = namespace.log_stdout
-        
+        self.http_timeout = namespace.http_timeout
+
         if namespace.command:
             self.argv_command: list[str] = namespace.command_args
             self.argv_command.insert(0, namespace.command)
@@ -157,12 +163,8 @@ class Context:
             )
         else:
             logging.debug("RCE is disabled")
-        #
-        # TODO After processing the args
-        #
-        #
-        #
-        self.proxy_client: Optional[ForgeNetworkClient] = None
+
+        self.proxy_client: Optional[Any] = None
 
         if platform.system() == "Windows":
             self.data_dir = Path(
@@ -249,7 +251,9 @@ class Context:
     )
     SOFTWARE_NAME = "CVE Forge"
     BASE_DIR = Path(__file__).parent.parent
+    WEB_DIR = BASE_DIR / "web"
     COMMANDS_DIR = BASE_DIR/'core/commands'
+    PAYLOAD_DIR = BASE_DIR / 'payloads'
     LOG_FILE: Path = BASE_DIR / ".cve.{host_id}.log"
     ASSETS_DIR = BASE_DIR / "assets"
     ASSETS_BASE_URL = "assets"
@@ -280,6 +284,7 @@ class Context:
     history_path: Path
     custom_history_path: Path
     sudo_pipe: Optional[Connection] = None
+    running_childs: dict[str, Process] = {}
 
     protocol_name: Optional[str] = None
 
@@ -321,7 +326,8 @@ class Context:
         False  # WARNING this enable TCP server to run remote code execution feature
     )
 
-    @lru_cache
+    # trunk-ignore(ruff/B019)
+    @lru_cache()
     def get_commands(self,):
         from core.commands.run import tcve_command
         commands: dict[str, TCVECommand] = {}
@@ -343,28 +349,23 @@ class Context:
             for file in command_path.rglob("*.py"):
                 module_src = str(file.relative_to(self.BASE_DIR)).replace(os.sep, ".")
                 module_src = module_src.removesuffix('.py')
-                module = import_module(module_src)
-                for element in vars(module).values():
-                    if isinstance(element, tcve_command):
-                        commands[element.name] = {
-                            "name": element.name,
-                            "command": element
-                        }
-                    # tcve_exploits are also found by this function and registered automatically
+                try:
+                    module = import_module(module_src)
+                    for element in vars(module).values():
+                        if isinstance(element, tcve_command):
+                            commands[element.name] = {
+                                "name": element.name,
+                                "command": element
+                            }
+                        # tcve_exploits are also found by this function and registered automatically
+                except Exception as ex:
+                    logging.warning("Skipping module %s as we found an unrecoverable error with message: %s", module_src, str(ex))
         logging.info("%s commands loaded successfully", len(commands))
 
         for command in commands:
             commands[command]["command"].on_commands_ready()
 
         return commands
-
-    def set_proxy_client(self, proxy_client: Any):
-        from core.network.forge.cveforge.client import ForgeNetworkClient
-
-        if isinstance(proxy_client, ForgeNetworkClient):
-            self.proxy_client = proxy_client
-        else:
-            raise ValueError(f"Proxy Client must be of type {ForgeNetworkClient}")
 
     def __enter__(
         self,

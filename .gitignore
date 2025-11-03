@@ -3,3 +3,4 @@
 *.log
 .cveschema.json
 .cveforge.toml
+/db.sqlite3

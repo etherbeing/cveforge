@@ -20,11 +20,13 @@ class tcve_command:
         self,
         name: str,
         parser: type[ForgeParser] | None = None,
+        auto_start: bool = False, # This is NOT been used at all
         categories: (
             list[str] | None
         ) = None,  # list of categories this command belongs to
         post_process: Optional[Callable[..., Any]] = None,
         decorated_method: Optional[Callable[..., Any]] = None,
+        defaults: list[str] | None = None,
     ) -> None:
         self._decorated_method: Optional[Callable[..., Any]] = decorated_method
         self._categories = categories
@@ -32,8 +34,12 @@ class tcve_command:
         self._parser: Optional[ForgeParser] = None
         self._name = name
         self.post_process = post_process
+        self._auto_start = auto_start
+        self._defaults = defaults
         if parser:
-            self._parser = parser(exit_on_error=False, add_help=True)
+            self._parser = parser(prog=name, exit_on_error=False, add_help=True)
+            if decorated_method:
+                self._parser.description = decorated_method.__doc__ or None
 
     def get_parser(self):
         return self._parser
@@ -90,6 +96,8 @@ class tcve_command:
             return self._decorated_method(*args, **kwds)
         if decorated_method and not isinstance(decorated_method, self.__class__):
             self._decorated_method = decorated_method
+            if self._parser:
+                self._parser.description = self._decorated_method.__doc__
         elif isinstance(decorated_method, self.__class__):
             return decorated_method
         elif not self._decorated_method:
@@ -107,6 +115,7 @@ class tcve_exploit:
     def __init__(
         self,
         name: str,
+        date: str,
         parser: type[ForgeParser] | None = None,
         categories: list[str] | None = None,
         post_process: Callable[..., Any] | None = None,
@@ -119,6 +128,7 @@ class tcve_exploit:
         self._namespace: Optional[Namespace] = None
         self._parser: Optional[ForgeParser] = None
         self._name = name
+        self._date = date
         self.post_process = post_process
 
     @property
@@ -184,6 +194,8 @@ class tcve_exploit:
             return self._decorated_method(decorated_method, *args, **kwds)
         if decorated_method and not isinstance(decorated_method, self.__class__):
             self._decorated_method = decorated_method
+            if self._parser:
+                self._parser.description = self._decorated_method.__doc__
         elif isinstance(decorated_method, self.__class__):
             return decorated_method
         elif not self._decorated_method:

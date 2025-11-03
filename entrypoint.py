@@ -32,7 +32,7 @@ from prompt_toolkit.mouse_events import MouseEvent
 from pygments.lexers.html import HtmlLexer
 
 
-from core.commands.types import TCVECommand
+from core.commands.command_types import TCVECommand
 from core.context import Context
 from core.exceptions.ipc import ForgeException
 from core.io import OUT

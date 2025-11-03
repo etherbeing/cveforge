@@ -10,6 +10,7 @@ from core.commands.web.brute_force_parser import BruteForceParser
 from core.context import Context
 from core.io import OUT
 
+
 CurlParser = ArgumentParser(prog="curl")
 CurlParser.add_argument("url")
 CurlParser.add_argument("-H", dest="headers", action="append", required=False)

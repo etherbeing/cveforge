@@ -6,13 +6,21 @@ license: Apache
 
 import logging
 import multiprocessing
+from collections.abc import Callable
 
-from core.commands.types import TCVECommand
+from core.commands.command_types import TCVECommand
 from core.context import Context
 from core.exceptions.ipc import ForgeException
 from core.io import OUT
 from entrypoint import main
-from utils.development import Watcher
+from utils.development import FileSystemEvent, Watcher
+
+
+def live_reload_trap(live_reload_watcher: Watcher, child:multiprocessing.Process)->Callable[..., None]:
+    def _trap(event: FileSystemEvent):
+        return live_reload_watcher.do_reload(event, child)
+    return _trap
+
 
 if __name__ == "__main__":
     with Context() as context:
@@ -62,7 +70,7 @@ if __name__ == "__main__":
             )
             child.start()
             if live_reload:
-                live_reload.live_reload = lambda event: live_reload.do_reload(event, child)  # type: ignore
+                live_reload.live_reload = live_reload_trap(live_reload_watcher=live_reload, child=child) # type: ignore
             logging.debug(
                 "Child process ended with code %s, now processing the exit status",
                 child.exitcode,

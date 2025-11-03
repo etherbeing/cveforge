@@ -75,7 +75,7 @@ def ping(context: Context, address: str, tcp: bool=False, timeout: int=1, retrie
         else:
             recv_packet = sr(packet / ICMP())
         if not recv_packet:
-            console.print(f"No packet received")
+            console.print("No packet received")
         else:
             recv_packet[0].show()
         # while True:

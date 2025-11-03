@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from core.commands.run import tcve_command
-from core.commands.security.hackthebox.certified import pol_reader
+from core.commands.common.utils.filesystem.pol import pol_reader
 from core.context import Context
 from core.io import OUT
 from utils.args import ForgeParser

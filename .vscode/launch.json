@@ -11,6 +11,7 @@
       "program": "__main__.py",
       "args": ["-ls", "--log-level=10", "--debug"],
       "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
       "autoReload": {
         "enabled": true,
         "include": ["**/*.py"]
