@@ -315,17 +315,15 @@ def main(pipe: Connection, context: Context) -> None:
             if not cve_command and base.startswith(
                 context.SYSTEM_COMMAND_TOKEN
             ):  # defaults to CLI
-                command = command.removeprefix(context.SYSTEM_COMMAND_TOKEN)
-                subprocess.run(
-                    command,
-                    shell=True,
-                    check=False,
-                    stdin=sys.stdin,
-                    stdout=sys.stdout,
+                command = command.removeprefix(context.SYSTEM_COMMAND_TOKEN).strip()
+                subprocess.call(
+                    shlex.split(command),
+                    stdin=session.input.fileno(),
+                    stdout=session.output.fileno(),
                     stderr=sys.stderr,
-                    preexec_fn=(
-                        cast(Optional[Callable[..., Any]], os.setpgrp if platform.system() != "Windows" else None)  # type: ignore[attr-defined] # pylint: disable=no-member
-                    ),
+                    # preexec_fn=(
+                    #     cast(Optional[Callable[..., Any]], os.setpgrp if platform.system() != "Windows" else None)  # type: ignore[attr-defined] # pylint: disable=no-member
+                    # ),
                 )
             elif cve_command:
                 try:
