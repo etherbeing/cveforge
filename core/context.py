@@ -296,7 +296,7 @@ class Context:
 
     protocol_name: Optional[str] = None
 
-    __console_session: PromptSession[str]
+    _console_session: PromptSession[str]
 
     _command_context: CommandContext = {
         "current_command": None,
@@ -305,10 +305,10 @@ class Context:
 
     @property
     def console_session(self):
-        return self.__console_session
+        return self._console_session
 
     def set_console_session(self, value: PromptSession[str]):
-        self.__console_session =  value
+        self._console_session =  value
 
     @property
     def command_context(

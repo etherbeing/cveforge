@@ -285,6 +285,7 @@ def main(pipe: Connection, context: Context) -> None:
         auto_suggest=AutoSuggestFromHistory(),
         complete_in_thread=True,
     )
+    context.set_console_session(session)
 
     OUT.print(
         get_banner(context=context),
@@ -328,6 +329,7 @@ def main(pipe: Connection, context: Context) -> None:
                 )
             elif cve_command:
                 try:
+                    context.command_context.update({"current_command": cve_command})
                     command_method = cve_command.get("command")
                     if not command_method:
                         raise DeprecationWarning(f"Method {cve_command.get('name')} not loaded due to deprecated feature used")

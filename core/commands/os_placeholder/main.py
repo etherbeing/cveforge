@@ -6,17 +6,17 @@ from core.context import Context
 from .parser import Parser
 
 
-@tcve_command("aircrack-ng", parser=Parser, aliases=["echo"])
+@tcve_command("bash", parser=Parser, aliases=["echo", "curl"])
 def main(context: Context, params: list[str]):
     cc = context.command_context.get("current_command") or {} 
     current_command = cc.get("name", "")
     call(
         [
-        current_command,
-        *params
+            current_command,
+            *params
         ],
-        stdout=sys.stdout,
+        stdout=context.console_session.output.fileno(),
         stderr=sys.stderr,
-        stdin=sys.stdin,
+        stdin=context.console_session.input.fileno(),
         shell=False
     )
