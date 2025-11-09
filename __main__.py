@@ -8,7 +8,6 @@ import logging
 import multiprocessing
 from collections.abc import Callable
 
-from core.commands.command_types import TCVECommand
 from core.context import Context
 from core.exceptions.ipc import ForgeException
 from core.io import OUT
@@ -36,7 +35,7 @@ if __name__ == "__main__":
             if len(context.argv_command) > 1:
                 args = context.argv_command[1:]
             base = context.argv_command[0]
-            local_commands: dict[str, TCVECommand] = context.get_commands()
+            local_commands, _  = context.get_commands()
             cve_command = local_commands.get(
                 base,
             )

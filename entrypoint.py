@@ -48,7 +48,7 @@ class CustomCompleter(NestedCompleter):
 
     def get_actual_command(self, for_command: str):
         parts = for_command.split() or [""]
-        command = self.context.get_commands().get(parts[0], None)
+        command = self.context.get_commands()[0].get(parts[0], None)
         if not command:
             return 
         self.context.command_context.update({"current_command": command})
@@ -199,7 +199,7 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
 """,
         ),
         ("", getpass.getuser()),
-        ("class:at", "@"),
+        ("class:at", "(-☠️ -)"),
         ("class:host", socket.gethostname()),
         (
             "class:colon",
@@ -211,10 +211,17 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
         (
             "class:colon",
             """
-|──[""",
+|──[ 🌐 """,
+        ),
+        ("class:title", f"Web UI: http://{context.web_address}"),
+        ("class:colon", " ]"),
+        (
+            "class:colon",
+            """
+|──[ ✨ """,
         ),
         ("class:title", "cve_forge v1.0.0"),
-        ("class:colon", "]"),
+        ("class:colon", " ]"),
         (
             "class:host",
             f"""{f" Proxy: << {context.proxy_client} >>" if context.proxy_client else ''}""",
@@ -245,11 +252,12 @@ def main(pipe: Connection, context: Context) -> None:
         sys.stdin = os.fdopen(0)
         sys.stdout = os.fdopen(1, "w")
         sys.stderr = os.fdopen(2, "w")
-    local_commands: dict[str, TCVECommand] = context.get_commands()
+    local_commands, local_aliases = context.get_commands()
+    available_callables: dict[str, TCVECommand] = local_commands|local_aliases
     completer: CustomCompleter = CustomCompleter.from_nested_dict(
         data={
             command[0]: command[1].get("kwargs", {})
-            for command in local_commands.items()
+            for command in available_callables.items()
         },
         context=context,
     )
@@ -302,7 +310,7 @@ def main(pipe: Connection, context: Context) -> None:
             if len(base) > 1:
                 args = base[1:]
             base = base[0]
-            cve_command: Optional[TCVECommand] = local_commands.get(base.strip(), None)
+            cve_command: Optional[TCVECommand] = available_callables.get(base.strip(), None)
             if not cve_command and base.startswith(
                 context.SYSTEM_COMMAND_TOKEN
             ):  # defaults to CLI
@@ -311,9 +319,9 @@ def main(pipe: Connection, context: Context) -> None:
                     command,
                     shell=True,
                     check=False,
-                    stdin=None,
-                    stdout=None,
-                    stderr=None,
+                    stdin=sys.stdin,
+                    stdout=sys.stdout,
+                    stderr=sys.stderr,
                     preexec_fn=(
                         cast(Optional[Callable[..., Any]], os.setpgrp if platform.system() != "Windows" else None)  # type: ignore[attr-defined] # pylint: disable=no-member
                     ),
@@ -336,7 +344,7 @@ def main(pipe: Connection, context: Context) -> None:
                     continue
             else:
                 closest_matches = difflib.get_close_matches(
-                    base, local_commands.keys(), n=1
+                    base, available_callables.keys(), n=1
                 )
                 if closest_matches:
                     OUT.print(
@@ -347,7 +355,7 @@ def main(pipe: Connection, context: Context) -> None:
                     )
                 else:
                     OUT.print(
-                        f"❗💥 Unknown command given, use help to know more...\nOptions are:\n  {', '.join(local_commands.keys())}"
+                        f"❗💥 Unknown command given, use help to know more...\nOptions are:\n  {', '.join(available_callables.keys())}"
                     )
         except ForgeException as ex:
             pipe.send(ex)

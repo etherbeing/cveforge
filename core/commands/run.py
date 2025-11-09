@@ -9,6 +9,7 @@ from typing import (
     Sequence,
 )
 
+from core.commands.command_types import TCVECommand
 from core.commands.exploits import ExploitParser
 from core.context import Context
 from core.exceptions.ipc import ForgeException
@@ -27,7 +28,9 @@ class tcve_command:
         post_process: Optional[Callable[..., Any]] = None,
         decorated_method: Optional[Callable[..., Any]] = None,
         defaults: list[str] | None = None,
+        aliases: list[str]|None=None
     ) -> None:
+        self._aliases = aliases
         self._decorated_method: Optional[Callable[..., Any]] = decorated_method
         self._categories = categories
         self._namespace: Optional[Namespace] = None
@@ -50,6 +53,26 @@ class tcve_command:
         """
         if self._parser:
             self._parser.setUp()
+        if self._auto_start and self._decorated_method: # self._decorated_method is expected to be always True at this point
+            parsed_kwargs = {}
+            if self._parser:
+                self._namespace = self._parser.parse_args([])
+                parsed_kwargs = dict(self._namespace._get_kwargs())
+            context = Context()
+            self._decorated_method(context, **parsed_kwargs)
+
+    def has_aliases(self):
+        return self._aliases is not None
+
+    def expand_aliases(self):
+        alias_dict: dict[str, TCVECommand] = {}
+        if self._aliases:
+            for alias_name in self._aliases:
+                alias_dict[alias_name] = {
+                    "command": self,
+                    "name": alias_name
+                }
+        return alias_dict
 
     @property
     def name(
@@ -120,9 +143,12 @@ class tcve_exploit:
         categories: list[str] | None = None,
         post_process: Callable[..., Any] | None = None,
         decorated_method: Callable[..., Any] | None = None,
+        aliases: list[str]|None=None,
+        auto_start: bool = False, # This is NOT been used at all
     ) -> None:
         ExploitParser.register_exploit(name, parser, self)
-
+        self._aliases = aliases
+        self._auto_start = auto_start
         self._decorated_method: Optional[Callable[..., Any]] = decorated_method
         self._categories = categories
         self._namespace: Optional[Namespace] = None

@@ -120,6 +120,12 @@ the CVE Forge software and is mostly useful for when running quick commands.
             default=30,
             type=int
         )
+        self.add_argument(
+            "--web-address",
+            "-W",
+            help="Expose the UI of the forge in an specific IP and TCP port",
+            default="127.0.0.1:3780"
+        )
 
 class CommandContext(TypedDict):
     current_command: TCVECommand|None
@@ -150,6 +156,7 @@ class Context:
         self.enable_sudo_rce = namespace.enable_rce
         self.log_to_stdout = namespace.log_stdout
         self.http_timeout = namespace.http_timeout
+        self.web_address = namespace.web_address
 
         if namespace.command:
             self.argv_command: list[str] = namespace.command_args
@@ -278,6 +285,7 @@ class Context:
 
     # Dynamic data needs class instantiation
     data_dir = None
+    web_address = "127.0.0.1:3780"
     DB_ENGINE = "sqlite"
     DB_URI: str
     db_path: Path
@@ -361,11 +369,12 @@ class Context:
                 except Exception as ex:
                     logging.warning("Skipping module %s as we found an unrecoverable error with message: %s", module_src, str(ex))
         logging.info("%s commands loaded successfully", len(commands))
-
+        aliases: dict[str, TCVECommand] = {}
         for command in commands:
             commands[command]["command"].on_commands_ready()
-
-        return commands
+            if commands[command]["command"].has_aliases():
+                aliases.update(**commands[command]["command"].expand_aliases())
+        return commands, aliases
 
     def __enter__(
         self,
