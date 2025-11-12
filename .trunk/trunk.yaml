@@ -21,7 +21,6 @@ lint:
     - bandit@1.8.3
     - black@25.1.0
     - checkov@3.2.439
-    - git-diff-check
     - isort@6.0.1
     - markdownlint@0.45.0
     - osv-scanner@2.0.2
@@ -30,6 +29,8 @@ lint:
     - taplo@0.9.3
     - trufflehog@3.89.0
     - yamllint@1.37.1
+  disabled:
+    - git-diff-check
 actions:
   disabled:
     - trunk-announce

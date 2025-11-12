@@ -90,8 +90,8 @@ the CVE Forge software and is mostly useful for when running quick commands.
             nargs=argparse.REMAINDER,
         )
         self.add_argument(
-            "--debug",
-            "-d",
+            "--live-reload",
+            "-R",
             action="store_true",
             default=False
         )
@@ -136,6 +136,7 @@ class Context:
     _singleton_instance = None
     _lock: threading.Lock = threading.Lock()
     log_to_stdout: bool = False
+    exit_status: int|None = None
 
     def __new__(cls):
         """Singleton constructor"""
@@ -151,7 +152,7 @@ class Context:
         cli_args = Args(prog=self.SOFTWARE_NAME.lower().replace(" ", "_"))
         cli_args.setUp()
         namespace = cli_args.parse_args(sys.argv[1:])
-        self.LIVE = not namespace.debug # type: ignore
+        self.live_reload = namespace.live_reload # type: ignore
         self.LOG_LEVEL = namespace.log_level
         self.enable_sudo_rce = namespace.enable_rce
         self.log_to_stdout = namespace.log_stdout
@@ -253,7 +254,7 @@ class Context:
         logging.debug("Logging setup correctly")
 
 
-    LIVE: bool = (
+    live_reload: bool = (
         False  # Live means actual production environment while, not live is when developing the forge
     )
     SOFTWARE_NAME = "CVE Forge"
@@ -339,7 +340,7 @@ class Context:
     def get_commands(self,):
         from core.commands.run import tcve_command
         commands: dict[str, TCVECommand] = {}
-        logging.info("Loading commands...%s", " (commands are live reloaded)" if not self.LIVE else '')
+        logging.info("Loading commands...%s", " (commands are live reloaded)" if not self.live_reload else '')
         assert self.DEFAULT_CVE_CONFIG_PATH.exists()
         command_paths: list[Path] = [self.COMMANDS_DIR]
         with self.DEFAULT_CVE_CONFIG_PATH.open("rb") as config:

@@ -56,5 +56,5 @@ class LSParser(ForgeParser):
 @tcve_command(name="ls", parser=LSParser, post_process=OUT.print)
 def command_ls(context: Context, path: Path, *args: Any, **kwargs: Any): # TODO pretty print the output with colors for file, folders, links and so on
     return f"""
-{"\n".join([file_or_folder.name for file_or_folder in sorted(path.glob(r"*"))])}
+{", ".join([file_or_folder.name for file_or_folder in sorted(path.glob(r"*"))])}
 """

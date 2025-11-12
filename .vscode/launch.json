@@ -9,7 +9,7 @@
       "type": "debugpy",
       "request": "launch",
       "program": "__main__.py",
-      "args": ["-ls", "--log-level=10", "--debug"],
+      "args": ["-ls", "--log-level=10", "--live-reload"],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "autoReload": {

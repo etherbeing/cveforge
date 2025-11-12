@@ -3,7 +3,6 @@ Entrypoint of the software handle run logic and call the needed modules from her
 """
 
 import difflib
-from functools import reduce
 import getpass
 import logging
 import os
@@ -12,25 +11,23 @@ import shlex
 import socket
 import subprocess
 import sys
-from multiprocessing.connection import Connection
-
-# import subprocess
+import datetime
+from functools import reduce
 from pathlib import Path
 from typing import Any, Callable, Iterable, List, Optional, Self, Tuple, cast
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import NestedCompleter, Completer
+from prompt_toolkit.completion import Completer, NestedCompleter
 from prompt_toolkit.completion.base import CompleteEvent, Completion
 from prompt_toolkit.completion.nested import NestedDict
 from prompt_toolkit.document import Document
 from prompt_toolkit.formatted_text import OneStyleAndTextTuple, StyleAndTextTuples
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
-from prompt_toolkit.styles import Style
 from prompt_toolkit.mouse_events import MouseEvent
+from prompt_toolkit.styles import Style
 from pygments.lexers.html import HtmlLexer
-
 
 from core.commands.command_types import TCVECommand
 from core.context import Context
@@ -100,15 +97,6 @@ class CustomCompleter(NestedCompleter):
                                 start_position=-len(for_command),
                             )
                         )
-        # if platform.system() == "Windows": # TODO Retrieve it from the DB instead of using Redis
-        #     executables.extend(
-        #         [
-        #             Completion(
-        #                 f"powershell.exe -c {command.strip()}",
-        #                 start_position=-len(for_command)
-        #             ) for command in getoutput("powershell -c \"Get-Command | Select-Object -Property Name\"").split("\n") if command.lower().startswith(for_command)
-        #         ]
-        #     )
         return executables
 
     def _get_args_completion(self, for_command: str)-> Iterable[Completion]:
@@ -220,7 +208,7 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
             """
 |──[ ✨ """,
         ),
-        ("class:title", "cve_forge v1.0.0"),
+        ("class:title", f"{format(datetime.datetime.now().astimezone(), '%I:%M:%S %p, %a, %d/%h/%Y')} - cve_forge v1.0.0"),
         ("class:colon", " ]"),
         (
             "class:host",
@@ -240,18 +228,12 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
     ]
 
 
-def main(pipe: Connection, context: Context) -> None:
+def main(context: Context) -> None:
     """
     Handle prompt and CLI as well as other program executable behavior.
     """
     OUT.clear()
     context.configure_logging()
-    if (
-        platform.system() == "Linux"
-    ):  # A workaround to make it work doesn't actually know if is needed but without it doesn't work
-        sys.stdin = os.fdopen(0)
-        sys.stdout = os.fdopen(1, "w")
-        sys.stderr = os.fdopen(2, "w")
     local_commands, local_aliases = context.get_commands()
     available_callables: dict[str, TCVECommand] = local_commands|local_aliases
     completer: CustomCompleter = CustomCompleter.from_nested_dict(
@@ -276,14 +258,18 @@ def main(pipe: Connection, context: Context) -> None:
             "title": "white",
         }
     )
+    def get_current_message(*args, **kwargs):
+        return get_message(context=context)
+
     session = PromptSession[str](
-        get_message(context=context),
+        message=get_current_message,
         completer=completer,
         lexer=CustomLexer(HtmlLexer, context=context),
         style=style,
         history=FileHistory(str(context.history_path)),
         auto_suggest=AutoSuggestFromHistory(),
-        complete_in_thread=True,
+        complete_in_thread=False,
+        refresh_interval=0.25,
     )
     context.set_console_session(session)
 
@@ -302,10 +288,11 @@ def main(pipe: Connection, context: Context) -> None:
     while True:
         try:
             command: str = session.prompt(
-                get_message(context=context), in_thread=True,
-            ).strip()
+                get_current_message, in_thread=False, refresh_interval=0.25
+            )
             if not command:
                 continue
+            command = command.strip()
             base = shlex.split(command)
             args = None
             if len(base) > 1:
@@ -321,27 +308,10 @@ def main(pipe: Connection, context: Context) -> None:
                     stdin=session.input.fileno(),
                     stdout=session.output.fileno(),
                     stderr=sys.stderr,
-                    # preexec_fn=(
-                    #     cast(Optional[Callable[..., Any]], os.setpgrp if platform.system() != "Windows" else None)  # type: ignore[attr-defined] # pylint: disable=no-member
-                    # ),
                 )
             elif cve_command:
-                try:
-                    context.command_context.update({"current_command": cve_command})
-                    command_method = cve_command.get("command")
-                    if not command_method:
-                        raise DeprecationWarning(f"Method {cve_command.get('name')} not loaded due to deprecated feature used")
-                    else:
-                        command_method.run(context, extra_args=args)
-                except ForgeException as ex:
-                    if ex.code == context.EC_EXIT or ex.code == context.EC_RELOAD:
-                        raise ex
-                    else:
-                        OUT.print_exception()
-                        continue
-                except Exception as _:  # pylint: disable=W0718
-                    OUT.print_exception()
-                    continue
+                context.command_context.update({"current_command": cve_command})
+                cve_command.get("command").run(context, extra_args=args)
             else:
                 closest_matches = difflib.get_close_matches(
                     base, available_callables.keys(), n=1
@@ -357,16 +327,9 @@ def main(pipe: Connection, context: Context) -> None:
                     OUT.print(
                         f"❗💥 Unknown command given, use help to know more...\nOptions are:\n  {', '.join(available_callables.keys())}"
                     )
-        except ForgeException as ex:
-            pipe.send(ex)
-            break
-        # except block catch
         except (KeyboardInterrupt, EOFError):
             OUT.print("❗ Use 'exit' to quit.")
-        except SystemExit as ex:
-            logging.debug(
-                "Catching exit attempt with code %s (DEPRECATED please move to ForgeException IPC)",
-                ex,
-            )
-        except Exception:  # pylint: disable=bare-except
-            OUT.print_exception()
+        except ForgeException as exc:
+            context.exit_status = exc.code
+            return
+    return context.EC_EXIT

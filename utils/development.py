@@ -1,19 +1,15 @@
-import json
-import multiprocessing
-from functools import lru_cache
-
-try:
-    from multiprocessing.connection import PipeConnection  # type: ignore
-except ImportError:  # For linux
-    from multiprocessing.connection import Connection as PipeConnection
-
 import hashlib
+import json
+import logging
+from functools import lru_cache
 from pathlib import Path
+from threading import Thread
 
 import pathspec
 from pathspec.patterns.gitwildmatch import GitWildMatchPattern
 from watchdog.events import FileModifiedEvent, FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
+from prompt_toolkit.application.current import get_app_or_none
 
 from core.context import Context
 from core.exceptions.ipc import ForgeException
@@ -24,12 +20,10 @@ from utils.locking import FileRecordLocking
 class Watcher(FileSystemEventHandler):
     """Class that handle live reload and more stuff related to development"""
 
-    def __init__(self, pipe: PipeConnection, context: Context) -> None:  # type: ignore
+    def __init__(self, context: Context) -> None:  # type: ignore
         super().__init__()
-        self._pipe: PipeConnection = pipe
         self.observer = Observer()
         self.observer.name = "Live Reload Watcher"
-        self.reload = False
         self.context = context
         self.pathspec = self.parse_gitignore()
         self.generate_folder_schema()
@@ -123,36 +117,35 @@ class Watcher(FileSystemEventHandler):
         path = path.relative_to(self.context.BASE_DIR)
         return self.pathspec.match_file(path)
 
-    def do_reload(self, event: FileSystemEvent, child: multiprocessing.Process):
+    def do_reload(self, event: FileSystemEvent, child: Thread):
         """Trigger the reload"""
-        try:
-            trigger_path = Path(str(event.src_path))
-            if not child or event.is_directory or self.is_path_ignored(trigger_path):
-                return
-            previous_id = (
-                self.get_schema()
-                .get(str(trigger_path.parent), {})
-                .get(trigger_path.name, None)
-            )
-            current_id = self.get_file_integrity(trigger_path)
-            if current_id == previous_id:
-                return
-            self.get_schema.cache_clear()
-            self.update_schema(trigger_path)
-            OUT.print(
-                f"\n\nFile touched at {event.src_path}, reloading to have latest changes running...",
-                justify="center",
-                width=OUT.width,
-            )
-            self.reload = True
-            try:
-                self._pipe.send(ForgeException(code=self.context.EC_RELOAD))  # type: ignore
-                if child:
-                    child.terminate()
-            except:  # pylint: disable=bare-except Ignore exceptions while killing
-                pass
-        except:  # pylint: disable=bare-except Ignore exceptions while killing
-            OUT.print_exception(show_locals=True)
+        trigger_path = Path(str(event.src_path))
+        if not child or event.is_directory or self.is_path_ignored(trigger_path):
+            return
+        previous_id = (
+            self.get_schema()
+            .get(str(trigger_path.parent), {})
+            .get(trigger_path.name, None)
+        )
+        current_id = self.get_file_integrity(trigger_path)
+        if current_id == previous_id:
+            return
+        self.get_schema.cache_clear()
+        self.update_schema(trigger_path)
+        OUT.print(
+            f"\n\nFile touched at {event.src_path}, reloading to have latest changes running...",
+            justify="center",
+            width=OUT.width,
+        )
+        logging.debug("Waiting for prompt thread to be ended gratefully...")
+        app = get_app_or_none()
+        if app:
+            app.exit(exception=ForgeException(code=self.context.EC_RELOAD))
+        # self.context.console_session.input.close()
+        # self.context.console_session.app.exit()
+        # self.context.console_session.app.invalidate()
+        child.join()
+        # TODO Deterministically make it so the main thread or prompt thread is actually reloaded
 
     def live_reload(self, event: FileSystemEvent):
         """
