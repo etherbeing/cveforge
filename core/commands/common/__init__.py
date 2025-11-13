@@ -102,7 +102,7 @@ def install(context: Context):
 
     shutil.copy(context.ASSETS_DIR / ".install/cveforge.desktop", DESKTOP_PATH)
     shutil.copy(context.ASSETS_DIR / "favicon.png", ICON_PATH)
-    OUT.print("[success]🪖 🔥 Successfully installed CVE Forge for the current user, files created 3, use debug mode to see where they are located 👊 🪖 🔥 ⚔️[/success]")
+    OUT.print("[success]🪖 🔥 Successfully installed CVE Forge for the current user, files created 3, use debug mode to see where they are located 👊🪖 🔥⚔️[/success]")
     logging.debug("Successfully written file to: %s", EXEC_PATH)
     logging.debug("Successfully written file to: %s", DESKTOP_PATH)
     logging.debug("Successfully written file to: %s", ICON_PATH)

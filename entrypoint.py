@@ -275,7 +275,6 @@ def main(context: Context, modules: dict[str, ModuleType]) -> None:
     Handle prompt and CLI as well as other program executable behavior.
     """
     os.system("clear")
-    context.configure_logging()
     local_commands, local_aliases = context.get_commands()
     available_callables: dict[str, TCVECommand] = local_commands | local_aliases
     completer: CustomCompleter = CustomCompleter.from_nested_dict(

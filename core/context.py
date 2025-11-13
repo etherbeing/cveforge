@@ -87,16 +87,9 @@ the CVE Forge software and is mostly useful for when running quick commands.
         self.add_argument(
             "--log-level",
             "-l",
-            default=logging.WARNING,
+            default=logging.INFO,
             type=int,
             choices=[logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR],
-        )
-        self.add_argument(
-            "--log-stdout",
-            "-ls",
-            action="store_true",
-            help="Log content to standard output",
-            default=False,
         )
         self.add_argument(
             "--http-timeout",
@@ -126,7 +119,6 @@ class Context:
 
     _singleton_instance = None
     _lock: threading.Lock = threading.Lock()
-    log_to_stdout: bool = False
     exit_status: int | None = None
 
     def __new__(cls):
@@ -145,7 +137,6 @@ class Context:
         namespace = cli_args.parse_args(sys.argv[1:])
         self.live_reload = namespace.live_reload  # type: ignore
         self.LOG_LEVEL = namespace.log_level
-        self.log_to_stdout = namespace.log_stdout
         self.http_timeout = namespace.http_timeout
         self.web_address = namespace.web_address
 
@@ -224,9 +215,10 @@ class Context:
         log_file = str(self.log_file).format(host_id=getpass.getuser())
         OUT.print(f"[yellow]Storing logs at: {log_file}[/yellow]")
         Path(log_file).touch(mode=0o755)
+        
         basicConfig(
             level=(self.LOG_LEVEL),
-            filename=None if self.log_to_stdout else log_file,
+            filename=log_file, # if self.log_to_stdout else log_file,
             filemode="a",  # Use 'a' for appending logs, or 'w' to overwrite
             format=self.LOG_FORMAT,
             datefmt=self.LOG_DATE_FTM,  # Optional: Customize timestamp format
@@ -244,10 +236,7 @@ class Context:
         BASE_DIR / ".cve.{host_id}.log"
     )  # DeprecationWarning: Use context.log_file instead
     ASSETS_DIR = BASE_DIR / "assets"
-    ASSETS_BASE_URL = "assets"
     TEXT_ART_DIR = ASSETS_DIR / "text_art"
-    DB_NAME = "data/db.sqlite"
-    CVE_FOLDER = ASSETS_DIR / "cvelistv5/cves"
     DEFAULT_CVE_CONFIG_PATH = BASE_DIR / ".cveforge.toml"
     # Exception Codes, useful for tree level deep communication
     EC_RELOAD = 3000
@@ -259,7 +248,6 @@ class Context:
     RT_ADDRESS_IN_USE = 4001
 
     SYSTEM_COMMAND_TOKEN = "@"
-    MEDIA_FOLDER = ASSETS_DIR / "data/media"
     CVE_IGNORE_PATH = BASE_DIR / ".cveignore"
     SOFTWARE_SCHEMA_PATH = BASE_DIR / ".cveschema.json"
     LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(pathname)s:%(lineno)d - %(funcName)s - %(message)s"
@@ -361,9 +349,9 @@ class Context:
         aliases: dict[str, TCVECommand] = {}
         for command in commands:
             commands[command]["command"].on_commands_ready(self)
-            if commands[command]["command"].has_aliases():
+            if commands[command]["command"].has_aliases() and not commands[command].get("command").hidden:
                 aliases.update(**commands[command]["command"].expand_aliases())
-        return commands, aliases
+        return dict(filter(lambda command: not command[1].get("command").hidden, commands.items())), aliases
 
     def __enter__(
         self,

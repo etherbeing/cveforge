@@ -83,6 +83,10 @@ class tcve_command:
         return alias_dict
 
     @property
+    def hidden(self):
+        return self._hidden
+
+    @property
     def name(
         self,
     ):

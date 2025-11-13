@@ -27,15 +27,10 @@ def live_reload_trap(
 
 if __name__ == "__main__":
     with Context() as context:
-        threading.main_thread().name = "CVEF Executor"
-        logging.basicConfig(
-            level=context.LOG_LEVEL,
-            format=context.LOG_FORMAT,
-            datefmt=context.LOG_DATE_FTM,
-        )
+        threading.main_thread().name = "CVE Forge Executor"
+        context.configure_logging()
 
         if context.argv_command:
-            context.configure_logging()
             logging.debug("Running command directly from the command line")
             args = []
             if len(context.argv_command) > 1:
@@ -66,7 +61,7 @@ if __name__ == "__main__":
         live_reload = None
         if context.live_reload:
             live_reload = Watcher(context=context)
-            live_reload.observer.name = "CVEF File Observer"
+            live_reload.observer.name = "CVE Forge File Observer"
             watcher = live_reload.start(context.BASE_DIR)
 
         while True:

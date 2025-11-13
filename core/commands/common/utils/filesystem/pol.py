@@ -12,8 +12,6 @@ from utils.args import ForgeParser
 class pol_reader_parser(ForgeParser):
     """Argument parser for pol reader"""
 
-    MEDIA_UPLOAD_URL = Context.ASSETS_BASE_URL + "/pol/"
-
     def setUp(self, *args: Any, **kwargs: Any) -> None:
         self.add_argument("file", help="Registry .pol file to be viewed")
 
@@ -131,7 +129,7 @@ def pol_reader(context: Context, file: Path):
             str(row.get("size")),
             (
                 Markdown(
-                    f"[Download file](http://localhost:8123{pol_reader_parser.MEDIA_UPLOAD_URL}{index + 1})"
+                    f"[Download file]NOT_IMPLEMENTED_YET{index + 1})"
                 )
                 if row.get("size")
                 else "no data"
