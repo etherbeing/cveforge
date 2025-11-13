@@ -1,7 +1,6 @@
 import sys
 from types import TracebackType
 from typing import Optional
-
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
 
@@ -37,6 +36,8 @@ class ForgeConsole:
         self._progress.__exit__(exc_type=exc_type, exc_val=exc_val, exc_tb=exc_tb)
 
 
-OUT: Console = Console(file=sys.stdout)
+OUT: Console = Console(
+    file=sys.stdout,
+)
 IN: Console = Console(file=sys.stdin)
 ERROR: Console = Console(file=sys.stderr)

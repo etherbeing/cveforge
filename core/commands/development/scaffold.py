@@ -5,7 +5,7 @@ from utils.args import ForgeParser
 
 
 class ScaffoldParser(ForgeParser):
-    def setUp(self, *args: Any, **kwargs: Any) -> None:    
+    def setUp(self, *args: Any, **kwargs: Any) -> None:
         option_subparser = self.add_subparsers(title="option", help="Scaffold a plugin directory with the default files needed")
         option_subparser.add_parser("plugin", help="Scaffold a plugin directory with the default files needed")
         option_subparser.add_parser("command", help="Scaffold a command directory so it contains all the needed files to add a new command to CVE Forge")

@@ -8,10 +8,11 @@ import platform
 import shutil
 import stat
 from functools import lru_cache
-from typing import Any
+from typing import Any, TypedDict
 
 from rich.markdown import Markdown
 
+from core.commands.command_types import TCVECommand
 from core.commands.run import tcve_command
 from core.context import Context
 from core.exceptions.ipc import ForgeException
@@ -118,7 +119,33 @@ def uninstall(context: Context):
     DESKTOP_PATH.unlink(True)
     ICON_PATH.unlink(True)
 
-    OUT.print("[success]👋🏃‍♀️💨 Successfully uninstalled CVE Forge for the current user, files deleted 3, use debug mode to see where they were located[/success]")
+    OUT.print("[success]👋🏃💨 Successfully uninstalled CVE Forge for the current user, files deleted 3, use debug mode to see where they were located[/success]")
     logging.debug("Successfully removed file in: %s", EXEC_PATH)
     logging.debug("Successfully removed file in: %s", DESKTOP_PATH)
     logging.debug("Successfully removed file in: %s", ICON_PATH)
+
+@tcve_command(name="info")
+def info(context: Context):
+    commands, aliases = context.get_commands()
+    body: dict[str, dict[str, TCVECommand]] = {}
+    for alias in aliases.values():
+        body[alias.get("command").name] = body.get(alias.get("command").name, {})
+        body[alias.get("command").name][alias.get("name")] = alias
+    for command in commands.values():
+        body[command.get("command").name] = body.get(command.get("command").name, {})
+        body[command.get("command").name][command.get("name")] = command
+    formatted_body = ""
+    for command in body:
+        formatted_body += "|-> [green]" + command + "[/green]: " + (body[command][command].get("command").__doc__ or "").rstrip() +"\n"
+        if len(body[command]) > 1:
+            formatted_body += "|---> aliases: "
+        for alias in body[command]:
+            if alias == command:
+                continue
+            formatted_body += "[#222222]" + alias + "[/#222222], "
+        if len(body[command]) > 1:
+            formatted_body = formatted_body.removesuffix(", ")
+        formatted_body += "\n\n"
+    OUT.print(
+        formatted_body,
+    )

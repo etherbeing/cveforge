@@ -28,8 +28,14 @@ class tcve_command:
         post_process: Optional[Callable[..., Any]] = None,
         decorated_method: Optional[Callable[..., Any]] = None,
         defaults: list[str] | None = None,
-        aliases: list[str]|None=None
+        aliases: list[str]|None=None,
+        cleanup: Optional[Callable[..., Any]] = None,
+        hidden: bool = False,
+        run_once: bool = False, # run once at the startup of the application reloads and so are to be made some other way
     ) -> None:
+        self._run_once = run_once
+        self._cleanup = cleanup
+        self._hidden = hidden
         self._aliases = aliases
         self._decorated_method: Optional[Callable[..., Any]] = decorated_method
         self._categories = categories
@@ -39,6 +45,7 @@ class tcve_command:
         self.post_process = post_process
         self._auto_start = auto_start
         self._defaults = defaults
+        self._cached_result: Any = None
         if parser:
             self._parser = parser(prog=name, exit_on_error=False, add_help=True)
             if decorated_method:
@@ -47,7 +54,7 @@ class tcve_command:
     def get_parser(self):
         return self._parser
 
-    def on_commands_ready(self):
+    def on_commands_ready(self, context: Context):
         """
         Auto executed after all command are loaded and all files are inspected for example for avoiding race conditions when exploits aren't created yet
         """
@@ -58,8 +65,9 @@ class tcve_command:
             if self._parser:
                 self._namespace = self._parser.parse_args([])
                 parsed_kwargs = dict(self._namespace._get_kwargs())
-            context = Context()
-            self._decorated_method(context, **parsed_kwargs)
+            self.run(context, **parsed_kwargs)
+        
+
 
     def has_aliases(self):
         return self._aliases is not None
@@ -89,13 +97,15 @@ class tcve_command:
     ):
         extra_args = args or extra_args
         logging.debug(
-            "Calling decorated function %s for function %s args: %s extra: %s kwargs: %s",
-            self._name,
+            "Calling decorated function %s with %s args: %s extra: %s kwargs: %s",
+            (context.command_context.get("current_command") or {}).get("name", self._name),
             self._decorated_method,
             args,
             extra_args,
             kwargs,
         )
+        if self._cleanup and self._cached_result:
+            self._cleanup(self._cached_result) # Run the cleanup function with the result of the previous call
         result = None
         if self._parser and self._decorated_method:
             self._namespace = self._parser.parse_args(extra_args or args)
@@ -107,6 +117,7 @@ class tcve_command:
             raise ForgeException("No module was passed when decorating")
         if self.post_process:
             self.post_process(result)
+        self._cached_result = result
         return result
 
     def __call__(
@@ -116,11 +127,15 @@ class tcve_command:
         **kwds: Any
     ) -> Any:
         if self._decorated_method:
-            return self._decorated_method(*args, **kwds)
+            if self._cached_result and self._cleanup:
+                self._cleanup(self._cached_result)
+            self._cached_result = self._decorated_method(*args, **kwds)
+            return self._cached_result
         if decorated_method and not isinstance(decorated_method, self.__class__):
             self._decorated_method = decorated_method
+            self.__doc__ = decorated_method.__doc__ or (self._parser.description if self._parser else None)
             if self._parser:
-                self._parser.description = self._decorated_method.__doc__
+                self._parser.description = self._parser.description or self._decorated_method.__doc__
         elif isinstance(decorated_method, self.__class__):
             return decorated_method
         elif not self._decorated_method:

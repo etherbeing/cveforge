@@ -7,7 +7,16 @@ from threading import Thread
 
 import pathspec
 from pathspec.patterns.gitwildmatch import GitWildMatchPattern
-from watchdog.events import FileModifiedEvent, FileSystemEvent, FileSystemEventHandler
+from watchdog.events import (
+    FileModifiedEvent,
+    FileSystemEvent,
+    FileSystemEventHandler,
+    FileCreatedEvent,
+    FileDeletedEvent,
+    FileMovedEvent,
+)
+
+from watchdog.observers.api import BaseObserver
 from watchdog.observers import Observer
 from prompt_toolkit.application.current import get_app_or_none
 
@@ -17,12 +26,16 @@ from core.io import OUT
 from utils.locking import FileRecordLocking
 
 
+class CVEObserver(Observer):  # type: ignore
+    pass
+
+
 class Watcher(FileSystemEventHandler):
     """Class that handle live reload and more stuff related to development"""
 
     def __init__(self, context: Context) -> None:  # type: ignore
         super().__init__()
-        self.observer = Observer()
+        self.observer: BaseObserver = CVEObserver()
         self.observer.name = "Live Reload Watcher"
         self.context = context
         self.pathspec = self.parse_gitignore()
@@ -40,7 +53,8 @@ class Watcher(FileSystemEventHandler):
             raise ForgeException() from e
         return sha256.hexdigest()
 
-    @lru_cache
+    # trunk-ignore(ruff/B019)
+    @lru_cache()
     def generate_folder_schema(self):
         """
         Generate a schema of the software folder to keep track of the files
@@ -79,7 +93,8 @@ class Watcher(FileSystemEventHandler):
             )
             return schema
 
-    @lru_cache  # this is to avoid reading the disk every time
+    # trunk-ignore(ruff/B019)
+    @lru_cache()
     def get_schema(
         self,
     ):
@@ -141,11 +156,7 @@ class Watcher(FileSystemEventHandler):
         app = get_app_or_none()
         if app:
             app.exit(exception=ForgeException(code=self.context.EC_RELOAD))
-        # self.context.console_session.input.close()
-        # self.context.console_session.app.exit()
-        # self.context.console_session.app.invalidate()
         child.join()
-        # TODO Deterministically make it so the main thread or prompt thread is actually reloaded
 
     def live_reload(self, event: FileSystemEvent):
         """
@@ -164,7 +175,15 @@ class Watcher(FileSystemEventHandler):
 
     def start(self, watch_folder: Path):
         watcher = self.observer.schedule(
-            self, str(watch_folder), recursive=True
+            self,
+            str(watch_folder),
+            recursive=True,
+            event_filter=[
+                FileCreatedEvent,
+                FileDeletedEvent,
+                FileMovedEvent,
+                FileModifiedEvent,
+            ],
         )  # Set recursive=False to watch only the top directory.
         self.observer.start()
         return watcher

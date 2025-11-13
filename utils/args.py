@@ -1,9 +1,11 @@
 """Interface for ArgumentParsers"""
 
+import sys
 from abc import abstractmethod
 from argparse import ArgumentParser
-from gettext import gettext as _
 from typing import Any, Optional
+
+from .translation import gettext as _
 
 
 class ExceptionParser(Exception):
@@ -24,15 +26,24 @@ class ForgeParser(ArgumentParser):
     def __init__(self, *args: Any, **kwargs: Any):
         kwargs.setdefault("prog", "cve_forge")
         kwargs.setdefault("exit_on_error", False)
-        self.exit_cleanly: bool = False
         super().__init__(*args, **kwargs)
+
+    def exit(self, status: int = 0, message: str | None = None):  # type: ignore
+        """
+        This override leaves the parser with no mean to quit the program by default
+        """
+        from core.context import Context
+
+        if message:
+            self._print_message(message, sys.stderr)
+        sys.exit(Context().EC_CONTINUE)
 
     @abstractmethod
     def setUp(  # pylint: disable=invalid-name
         self,
     ) -> None:
         """Setup arguments and subparsers"""
-        raise NotImplementedError("Implement this to populate the arguments")
+        raise NotImplementedError(_("Implement this to populate the arguments"))
 
     def __getattribute__(self, name: str) -> Any:
         return super().__getattribute__(name)

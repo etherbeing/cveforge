@@ -5,7 +5,6 @@ Handle global context for the current user, target host, port, arguments passed 
 import argparse
 import getpass
 import logging
-from multiprocessing import Process
 import os
 import platform
 import sys
@@ -18,11 +17,6 @@ from types import TracebackType
 from typing import Any, Optional, Self, TypedDict
 
 from core.commands.command_types import TCVECommand
-
-try:
-    from multiprocessing.connection import Connection
-except ImportError:
-    from multiprocessing.connection import PipeConnection as Connection # type: ignore
 
 from tomllib import load
 
@@ -83,29 +77,19 @@ public ip of the user and exit after that, this suppress the interactive behavio
 the CVE Forge software and is mostly useful for when running quick commands.
 """
             ),
-            nargs="?"
+            nargs="?",
         )
         self.add_argument(
             "command_args",
             nargs=argparse.REMAINDER,
         )
-        self.add_argument(
-            "--live-reload",
-            "-R",
-            action="store_true",
-            default=False
-        )
+        self.add_argument("--live-reload", "-R", action="store_true", default=False)
         self.add_argument(
             "--log-level",
             "-l",
             default=logging.WARNING,
             type=int,
-            choices=[
-                logging.DEBUG,
-                logging.INFO,
-                logging.WARNING,
-                logging.ERROR
-            ]
+            choices=[logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR],
         )
         self.add_argument(
             "--log-stdout",
@@ -118,25 +102,32 @@ the CVE Forge software and is mostly useful for when running quick commands.
             "--http-timeout",
             help="Set the general HTTP timeout for the Forge",
             default=30,
-            type=int
+            type=int,
         )
         self.add_argument(
             "--web-address",
             "-W",
             help="Expose the UI of the forge in an specific IP and TCP port",
-            default="127.0.0.1:3780"
+            default="127.0.0.1:3780",
         )
 
+    def exit(self, status: int = 0, message: str | None = None):
+        if message:
+            self._print_message(message, sys.stderr)
+        sys.exit(status)
+
 class CommandContext(TypedDict):
-    current_command: TCVECommand|None
-    remote_path: str|None
+    current_command: TCVECommand | None
+    remote_path: str | None
+
 
 class Context:
     """Store all the settings and anything that is needed to be used global"""
+
     _singleton_instance = None
     _lock: threading.Lock = threading.Lock()
     log_to_stdout: bool = False
-    exit_status: int|None = None
+    exit_status: int | None = None
 
     def __new__(cls):
         """Singleton constructor"""
@@ -152,25 +143,19 @@ class Context:
         cli_args = Args(prog=self.SOFTWARE_NAME.lower().replace(" ", "_"))
         cli_args.setUp()
         namespace = cli_args.parse_args(sys.argv[1:])
-        self.live_reload = namespace.live_reload # type: ignore
+        self.live_reload = namespace.live_reload  # type: ignore
         self.LOG_LEVEL = namespace.log_level
-        self.enable_sudo_rce = namespace.enable_rce
         self.log_to_stdout = namespace.log_stdout
         self.http_timeout = namespace.http_timeout
         self.web_address = namespace.web_address
 
         if namespace.command:
+            # We are in CLI mode
             self.argv_command: list[str] = namespace.command_args
             self.argv_command.insert(0, namespace.command)
+            ForgeParser.exit = Args.exit # type: ignore
         else:
             self.argv_command = []
-
-        if self.enable_sudo_rce:
-            logging.warning(
-                "RCE is enabled, please be aware of filesystem or network security, before doing this"
-            )
-        else:
-            logging.debug("RCE is disabled")
 
         self.proxy_client: Optional[Any] = None
 
@@ -182,16 +167,12 @@ class Context:
             self.data_dir = Path(os.path.expanduser("~/Library/Application Support/"))
         else:  # Linux and other UNIX-like OS
             self.data_dir = Path(os.path.expanduser("~/.local/share/"))
-        self.data_dir = (self.data_dir / self.SOFTWARE_NAME).absolute()
-        self.tmp_dir = self.data_dir / 'tmp'
-        self.tmp_dir.mkdir(exist_ok=True)
-        self.db_path = self.data_dir / self.DB_NAME.replace(" ", "_")
-        self.db_path = self.db_path.absolute()
-        base_dir = self.db_path.parent
-        base_dir.mkdir(parents=True, exist_ok=True) 
-        self.db_path.touch(exist_ok=True)
-        assert self.db_path.exists()
-        self.db_uri = f"sqlite:///{self.db_path}"
+        self.data_dir = (
+            self.data_dir / self.SOFTWARE_NAME.replace(" ", "_").lower()
+        ).absolute()
+        self.log_file = self.data_dir / ".cve.{host_id}.log"
+        self.tmp_dir = self.data_dir / "tmp"
+        self.tmp_dir.mkdir(exist_ok=True, parents=True)
         self.history_path = self.data_dir / ".history.cve"
         self.custom_history_path = self.data_dir / ".histories/"
         logging.info("History file is at: %s", self.history_path)
@@ -240,9 +221,9 @@ class Context:
         """
         Configure python default logger or root logger to store logs in a predetermined place
         """
-        log_file = str(self.LOG_FILE).format(host_id=getpass.getuser())
+        log_file = str(self.log_file).format(host_id=getpass.getuser())
         OUT.print(f"[yellow]Storing logs at: {log_file}[/yellow]")
-        Path(log_file).touch(mode=755)
+        Path(log_file).touch(mode=0o755)
         basicConfig(
             level=(self.LOG_LEVEL),
             filename=None if self.log_to_stdout else log_file,
@@ -253,16 +234,15 @@ class Context:
         )
         logging.debug("Logging setup correctly")
 
-
-    live_reload: bool = (
-        False  # Live means actual production environment while, not live is when developing the forge
-    )
+    live_reload: bool = False  # Live means actual production environment while, not live is when developing the forge
     SOFTWARE_NAME = "CVE Forge"
     BASE_DIR = Path(__file__).parent.parent
     WEB_DIR = BASE_DIR / "web"
-    COMMANDS_DIR = BASE_DIR/'core/commands'
-    PAYLOAD_DIR = BASE_DIR / 'payloads'
-    LOG_FILE: Path = BASE_DIR / ".cve.{host_id}.log"
+    COMMANDS_DIR = BASE_DIR / "core/commands"
+    PAYLOAD_DIR = BASE_DIR / "payloads"
+    LOG_FILE: Path = (
+        BASE_DIR / ".cve.{host_id}.log"
+    )  # DeprecationWarning: Use context.log_file instead
     ASSETS_DIR = BASE_DIR / "assets"
     ASSETS_BASE_URL = "assets"
     TEXT_ART_DIR = ASSETS_DIR / "text_art"
@@ -272,6 +252,7 @@ class Context:
     # Exception Codes, useful for tree level deep communication
     EC_RELOAD = 3000
     EC_EXIT = 3001
+    EC_CONTINUE = 3002
     # Return codes, useful for arbitrary exits from the program
     RT_OK = 0
     RT_INVALID_COMMAND = 4000
@@ -287,29 +268,21 @@ class Context:
     # Dynamic data needs class instantiation
     data_dir = None
     web_address = "127.0.0.1:3780"
-    DB_ENGINE = "sqlite"
-    DB_URI: str
-    db_path: Path
     history_path: Path
     custom_history_path: Path
-    sudo_pipe: Optional[Connection] = None
-    running_childs: dict[str, Process] = {}
 
     protocol_name: Optional[str] = None
 
     _console_session: PromptSession[str]
 
-    _command_context: CommandContext = {
-        "current_command": None,
-        "remote_path": None
-    }
+    _command_context: CommandContext = {"current_command": None, "remote_path": None}
 
     @property
     def console_session(self):
-        return self._console_session
+        return getattr(self, "_console_session", PromptSession[str]())
 
     def set_console_session(self, value: PromptSession[str]):
-        self._console_session =  value
+        self._console_session = value
 
     @property
     def command_context(
@@ -319,7 +292,9 @@ class Context:
         return self._command_context
 
     def refresh_command_remote_path(self):
-        self._command_context["remote_path"] = f"{self.protocol_name}://{self.username}{':*****' if self.password else ''}@{self.address}{f':{self.port}' if self.port else ''}//{self.share_name}{(f'/{self.context_path.removesuffix('/')}') if self.context_path else ''}"
+        self._command_context["remote_path"] = (
+            f"{self.protocol_name}://{self.username}{':*****' if self.password else ''}@{self.address}{f':{self.port}' if self.port else ''}//{self.share_name}{(f'/{self.context_path.removesuffix("/")}') if self.context_path else ''}"
+        )
 
     # cli: PromptSession[str] # Command Line
     # For shared context that needs to be transmitted through multiple commands,
@@ -331,16 +306,19 @@ class Context:
     domain: Optional[str] = None  # For protocols like smb or netbios
     share_name: Optional[str] = None  # For protocols like smb or netbios
     context_path: Optional[str] = None
-    enable_sudo_rce: bool = (
-        False  # WARNING this enable TCP server to run remote code execution feature
-    )
 
     # trunk-ignore(ruff/B019)
     @lru_cache()
-    def get_commands(self,):
+    def get_commands(
+        self,
+    ):
         from core.commands.run import tcve_command
+
         commands: dict[str, TCVECommand] = {}
-        logging.info("Loading commands...%s", " (commands are live reloaded)" if not self.live_reload else '')
+        logging.info(
+            "Loading commands...%s",
+            " (commands are live reloaded)" if not self.live_reload else "",
+        )
         assert self.DEFAULT_CVE_CONFIG_PATH.exists()
         command_paths: list[Path] = [self.COMMANDS_DIR]
         with self.DEFAULT_CVE_CONFIG_PATH.open("rb") as config:
@@ -348,31 +326,41 @@ class Context:
             toml_commands: list[str] = config_data.get("core", {}).get("commands", [])
             for command_path in toml_commands:
                 if Path(command_path).is_absolute():
-                    raise ValueError("Please make sure the path provided isn't an absolute Path")
-                command_full_path = (self.BASE_DIR/command_path).absolute() # normalize it
+                    raise ValueError(
+                        "Please make sure the path provided isn't an absolute Path"
+                    )
+                command_full_path = (
+                    self.BASE_DIR / command_path
+                ).absolute()  # normalize it
                 if command_full_path.exists():
                     command_paths.append(command_full_path)
-                    logging.debug("Configured custom module path at: %s", command_full_path)
-        
+                    logging.debug(
+                        "Configured custom module path at: %s", command_full_path
+                    )
+
         for command_path in command_paths:
             for file in command_path.rglob("*.py"):
                 module_src = str(file.relative_to(self.BASE_DIR)).replace(os.sep, ".")
-                module_src = module_src.removesuffix('.py')
+                module_src = module_src.removesuffix(".py")
                 try:
                     module = import_module(module_src)
                     for element in vars(module).values():
                         if isinstance(element, tcve_command):
                             commands[element.name] = {
                                 "name": element.name,
-                                "command": element
+                                "command": element,
                             }
                         # tcve_exploits are also found by this function and registered automatically
                 except Exception as ex:
-                    logging.warning("Skipping module %s as we found an unrecoverable error with message: %s", module_src, str(ex))
+                    logging.warning(
+                        "Skipping module %s as we found an unrecoverable error with message: %s",
+                        module_src,
+                        str(ex),
+                    )
         logging.info("%s commands loaded successfully", len(commands))
         aliases: dict[str, TCVECommand] = {}
         for command in commands:
-            commands[command]["command"].on_commands_ready()
+            commands[command]["command"].on_commands_ready(self)
             if commands[command]["command"].has_aliases():
                 aliases.update(**commands[command]["command"].expand_aliases())
         return commands, aliases

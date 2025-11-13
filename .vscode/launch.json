@@ -16,6 +16,32 @@
         "enabled": true,
         "include": ["**/*.py"]
       }
+    },
+    {
+      "name": "CVE Forge: CLI Test",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "__main__.py",
+      "args": ["-ls", "--log-level=10", "--live-reload", "echo", "hello world"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "autoReload": {
+        "enabled": true,
+        "include": ["**/*.py"]
+      }
+    },
+    {
+      "name": "CVE Forge: CLI help test",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "__main__.py",
+      "args": ["-ls", "--log-level=10", "--live-reload", "--help"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "autoReload": {
+        "enabled": true,
+        "include": ["**/*.py"]
+      }
     }
   ]
 }

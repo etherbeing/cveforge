@@ -22,7 +22,7 @@ def get_type(file: Path) -> Optional[str]:
     # name = parts[1][::-1]
     return ext.lower()
 
-@tcve_command(name="open", parser=command_open_parser)
+@tcve_command(name="open", parser=command_open_parser, post_process=OUT.print)
 def command_open(context: Context, file: Path):
     """
     Handle file open in the CVE Forge context
@@ -36,25 +36,3 @@ def command_open(context: Context, file: Path):
     else:
         with open(file, mode="rb") as rfile:
             return rfile.read()
-
-
-class command_cd_parser(ForgeParser):
-    """Parse arguments for the CD command"""
-
-    def setUp(self, *args: Any, **kwargs: Any) -> None:
-        self.add_argument("path", nargs="?", type=lambda val: Path(val) if val else None)
-
-@tcve_command(name="cd", parser=command_cd_parser)
-def command_cd(context: Context, path: Path|None=None):
-    """Change directory or current working directory into a new one"""
-    os.chdir(path if path else Path.home())
-
-class LSParser(ForgeParser):
-    def setUp(self) -> None:
-        self.add_argument("path", nargs="?", default=os.getcwd(), type=Path)
-
-@tcve_command(name="ls", parser=LSParser, post_process=OUT.print)
-def command_ls(context: Context, path: Path, *args: Any, **kwargs: Any): # TODO pretty print the output with colors for file, folders, links and so on
-    return f"""
-{", ".join([file_or_folder.name for file_or_folder in sorted(path.glob(r"*"))])}
-"""

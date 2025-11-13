@@ -93,7 +93,7 @@ def pol_reader(context: Context, file: Path):
             # FIXME This part of the code is prone to error as what I am going to do is a hack without understanding why this does work
             # the idea was to convert the current size of the size payload which is 5 into a normal DWORD or integer payload which is
             # 4 bytes long, so for it we are just stripping the first byte shamelessly :-) also we tested if the first byte was a sign
-            # byte or something but we have no luck, neither changing the endianess or anything
+            # byte or something but we had no luck, neither changing the endianess or anything
 
             int_size = int.from_bytes(int_byte[1:], "little")  # 972
             walk_props["rows"][walk_props["row_index"]][

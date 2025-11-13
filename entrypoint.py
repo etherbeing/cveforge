@@ -4,14 +4,14 @@ Entrypoint of the software handle run logic and call the needed modules from her
 
 import difflib
 import getpass
-import logging
 import os
 import platform
 import shlex
 import socket
 import subprocess
 import sys
-import datetime
+from types import ModuleType
+from django.utils.timezone import datetime
 from functools import reduce
 from pathlib import Path
 from typing import Any, Callable, Iterable, List, Optional, Self, Tuple, cast
@@ -27,8 +27,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.mouse_events import MouseEvent
 from prompt_toolkit.styles import Style
-from pygments.lexers.html import HtmlLexer
-
+from pygments.lexers.html import HtmlLexer  # type: ignore
 from core.commands.command_types import TCVECommand
 from core.context import Context
 from core.exceptions.ipc import ForgeException
@@ -47,20 +46,22 @@ class CustomCompleter(NestedCompleter):
         parts = for_command.split() or [""]
         command = self.context.get_commands()[0].get(parts[0], None)
         if not command:
-            return 
+            return
         self.context.command_context.update({"current_command": command})
         return command
 
     @classmethod
-    def from_nested_dict(cls, data: NestedDict, context: Context) -> Self: # type: ignore
+    def from_nested_dict(cls, data: NestedDict, context: Context) -> Self:  # type: ignore
         options: dict[str, Completer | None] = {}
         for key, value in data.items():
             if isinstance(value, Completer):
                 options[key] = value
             elif isinstance(value, dict):
-                options[key] = cls.from_nested_dict(value, context) # type: ignore
+                options[key] = cls.from_nested_dict(value, context)  # type: ignore
             elif isinstance(value, set):
-                options[key] = cls.from_nested_dict({item: None for item in value}, context) # type: ignore
+                options[key] = cls.from_nested_dict(
+                    {item: None for item in value}, context # type: ignore
+                )  
             else:
                 assert value is None
                 options[key] = None
@@ -99,7 +100,7 @@ class CustomCompleter(NestedCompleter):
                         )
         return executables
 
-    def _get_args_completion(self, for_command: str)-> Iterable[Completion]:
+    def _get_args_completion(self, for_command: str) -> Iterable[Completion]:
         current_command = self.get_actual_command(for_command)
         if not current_command:
             return []
@@ -107,13 +108,29 @@ class CustomCompleter(NestedCompleter):
         if parser:
             command_parts = for_command.split()
             last_part = command_parts[-1]
-            new_one = for_command.endswith(" ") or current_command.get("name") == last_part
-            action_names = reduce(lambda x, y: x+y, [list(action.option_strings or cast(list[str], action.choices) or []) for action in parser._actions])
-            action_names = filter(lambda action_name: new_one or action_name.startswith(last_part) ,action_names)
+            new_one = (
+                for_command.endswith(" ") or current_command.get("name") == last_part
+            )
+            action_names = reduce(
+                lambda x, y: x + y,
+                [
+                    list(action.option_strings or cast(list[str], action.choices) or [])
+                    for action in parser._actions
+                ],
+            )
+            action_names = filter(
+                lambda action_name: new_one or action_name.startswith(last_part),
+                action_names,
+            )
             # logging.info(list(action_names))
             command_parts[-1] = "{action_name}"
-            return [ # TODO make the completion to work recursively within the subparsers to auto complete everything
-                Completion(text=" ".join(command_parts).format(action_name=action_name), start_position=-len(for_command) - 1, display=action_name ) for action_name in action_names
+            return [  # TODO make the completion to work recursively within the subparsers to auto complete everything
+                Completion(
+                    text=" ".join(command_parts).format(action_name=action_name),
+                    start_position=-len(for_command) - 1,
+                    display=action_name,
+                )
+                for action_name in action_names
             ]
         else:
             return []
@@ -149,30 +166,50 @@ class CustomCompleter(NestedCompleter):
         else:
             completions = super().get_completions(document, complete_event)
 
-        return [*completions, *self._get_args_completion(command), *self._get_path_completion(command)]
+        return [
+            *completions,
+            *self._get_args_completion(command),
+            *self._get_path_completion(command),
+        ]
+
 
 class CustomLexer(PygmentsLexer):
     def __init__(self, *args: Any, context: Context, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self._context = context
-    
-    def lex_document(self, document: Document) -> Callable[[int], List[Tuple[str, str] | Tuple[str, str, Callable[[MouseEvent], object]]]]:
+
+    def lex_document(
+        self, document: Document
+    ) -> Callable[
+        [int], List[Tuple[str, str] | Tuple[str, str, Callable[[MouseEvent], object]]]
+    ]:
         get_super_line = super().lex_document(document)
-        def get_line(*args: Any, **kwargs:Any):
+
+        def get_line(*args: Any, **kwargs: Any):
             super_styles = get_super_line(*args, **kwargs)
             styles: StyleAndTextTuples = []
-            default_style = super_styles[0][0] if len(super_styles) > 0 and len(super_styles[0]) > 0 else ""
+            default_style = (
+                super_styles[0][0]
+                if len(super_styles) > 0 and len(super_styles[0]) > 0
+                else ""
+            )
             parts = document.text.split() or [""]
-            current_command = self._context.command_context.get('current_command')
+            current_command = self._context.command_context.get("current_command")
             if current_command and parts[0] == current_command.get("name"):
                 styles = [("class:command", parts[0])]
-                remainder = document.text[len(parts[0]):] # use this way and not the parts array because we need to respect the blank spaces
+                remainder = document.text[
+                    len(parts[0]) :
+                ]  # use this way and not the parts array because we need to respect the blank spaces
                 if len(remainder) > 0:
-                    styles.append(cast(OneStyleAndTextTuple, (default_style, remainder)))
+                    styles.append(
+                        cast(OneStyleAndTextTuple, (default_style, remainder))
+                    )
             else:
                 styles = [(default_style, document.text)]
             return styles
+
         return get_line
+
 
 def get_message(context: Context) -> List[OneStyleAndTextTuple]:
     """Obtain a beautiful prompt message declared here for auto-updating the CWD"""
@@ -208,16 +245,21 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
             """
 |──[ ✨ """,
         ),
-        ("class:title", f"{format(datetime.datetime.now().astimezone(), '%I:%M:%S %p, %a, %d/%h/%Y')} - cve_forge v1.0.0"),
+        (
+            "class:title",
+            f"{format(datetime.now(), '%I:%M:%S %p, %a, %d/%h/%Y')} - cve_forge v1.0.0",
+        ),
         ("class:colon", " ]"),
         (
             "class:host",
-            f"""{f" Proxy: << {context.proxy_client} >>" if context.proxy_client else ''}""",
+            f"""{f" Proxy: << {context.proxy_client} >>" if context.proxy_client else ""}""",
         ),
         ("class:colon", "\n|" if context.command_context.get("remote_path") else ""),
         (
             "class:colon",
-            f"──[{context.command_context.get("remote_path")}]" if context.command_context.get("remote_path") else "",
+            f"──[{context.command_context.get('remote_path')}]"
+            if context.command_context.get("remote_path")
+            else "",
         ),
         (
             "class:colon",
@@ -228,14 +270,14 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
     ]
 
 
-def main(context: Context) -> None:
+def main(context: Context, modules: dict[str, ModuleType]) -> None:
     """
     Handle prompt and CLI as well as other program executable behavior.
     """
-    OUT.clear()
+    os.system("clear")
     context.configure_logging()
     local_commands, local_aliases = context.get_commands()
-    available_callables: dict[str, TCVECommand] = local_commands|local_aliases
+    available_callables: dict[str, TCVECommand] = local_commands | local_aliases
     completer: CustomCompleter = CustomCompleter.from_nested_dict(
         data={
             command[0]: command[1].get("kwargs", {})
@@ -258,7 +300,8 @@ def main(context: Context) -> None:
             "title": "white",
         }
     )
-    def get_current_message(*args, **kwargs):
+
+    def get_current_message(*args: list[str], **kwargs: dict[str, Any]):
         return get_message(context=context)
 
     session = PromptSession[str](
@@ -298,7 +341,9 @@ def main(context: Context) -> None:
             if len(base) > 1:
                 args = base[1:]
             base = base[0]
-            cve_command: Optional[TCVECommand] = available_callables.get(base.strip(), None)
+            cve_command: Optional[TCVECommand] = available_callables.get(
+                base.strip(), None
+            )
             if not cve_command and base.startswith(
                 context.SYSTEM_COMMAND_TOKEN
             ):  # defaults to CLI
@@ -319,7 +364,7 @@ def main(context: Context) -> None:
                 if closest_matches:
                     OUT.print(
                         f"""⚠️ Unknown command given, perhaps you meant [yellow]{
-                        closest_matches[0]
+                            closest_matches[0]
                         }[/yellow]?
                     """
                     )
@@ -332,4 +377,11 @@ def main(context: Context) -> None:
         except ForgeException as exc:
             context.exit_status = exc.code
             return
-    return context.EC_EXIT
+        except SystemExit as exc:
+            if exc.code == context.EC_CONTINUE:
+                continue
+            else:
+                raise exc
+        except Exception:
+            OUT.print_exception()
+            continue
