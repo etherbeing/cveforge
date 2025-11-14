@@ -1,6 +1,5 @@
 **__pycache__
 /extras
 *.log
-.cveschema.json
-.cveforge.toml
-/db.sqlite3
+*.egg-info
+/dist/

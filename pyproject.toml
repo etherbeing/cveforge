@@ -1,7 +1,7 @@
 [project]
-name = "cve-forge"
+name = "cveforge"
 version = "0.1.0"
-description = "Add your description here"
+description = "Framework that aim to enhance the developer experience for CVEs, malware, scans and reports. Aimed to Red and Blue cybersecurity teams."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
