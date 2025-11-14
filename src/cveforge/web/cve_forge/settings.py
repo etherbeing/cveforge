@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from typing import Any
-from core.context import Context
+from cveforge.core.context import Context
 
 context = Context()
 if not context.data_dir:
@@ -41,8 +41,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    "web.apps.security",
-    "web.apps.base",
+    "cveforge.web.apps.security",
+    "cveforge.web.apps.base",
 ]
 
 AUTH_USER_MODEL = "security.User"
@@ -57,7 +57,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "web.cve_forge.urls"
+ROOT_URLCONF = "cveforge.web.cve_forge.urls"
 
 TEMPLATES: list[dict[str, Any]] = [
     {
@@ -74,8 +74,8 @@ TEMPLATES: list[dict[str, Any]] = [
     },
 ]
 
-WSGI_APPLICATION = "web.cve_forge.wsgi.application"
-ASGI_APPLICATION = "web.cve_forge.asgi.application"
+WSGI_APPLICATION = "cveforge.web.cve_forge.wsgi.application"
+ASGI_APPLICATION = "cveforge.web.cve_forge.asgi.application"
 
 
 # Database

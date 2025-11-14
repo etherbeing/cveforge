@@ -3,7 +3,10 @@
 import sys
 from abc import abstractmethod
 from argparse import ArgumentParser
-from typing import Any, Optional
+from typing import Any, Optional, Union
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from cveforge.core.context import Context
 
 from .translation import gettext as _
 
@@ -26,22 +29,24 @@ class ForgeParser(ArgumentParser):
     def __init__(self, *args: Any, **kwargs: Any):
         kwargs.setdefault("prog", "cve_forge")
         kwargs.setdefault("exit_on_error", False)
+        self._context: Union['Context', None] = None
         super().__init__(*args, **kwargs)
 
+    def set_context(self, context: 'Context'):
+        self._context = context
+
     def _print_message(self, message: str, *args: Any, **kwargs: dict[str, Any]): # type: ignore
-        from core.context import Context
-        if message:
-            Context().stdout.print(message)
+        if message and self._context:
+            self._context.stdout.print(message)
 
     def exit(self, status: int = 0, message: str | None = None):  # type: ignore
         """
         This override leaves the parser with no mean to quit the program by default
         """
-        from core.context import Context
-
         if message:
             self._print_message(message)
-        sys.exit(Context().EC_CONTINUE)
+        if self._context:
+            sys.exit(self._context.EC_CONTINUE)
 
     @abstractmethod
     def setUp(  # pylint: disable=invalid-name

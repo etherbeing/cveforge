@@ -324,7 +324,7 @@ wheels = [
 ]
 
 [[package]]
-name = "cve-forge"
+name = "cveforge"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

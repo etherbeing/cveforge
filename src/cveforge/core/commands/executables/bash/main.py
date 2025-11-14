@@ -3,8 +3,8 @@ import sys
 # trunk-ignore(bandit/B404)
 from subprocess import call
 
-from core.commands.run import tcve_command
-from core.context import Context
+from cveforge.core.commands.run import tcve_command
+from cveforge.core.context import Context
 
 from .parser import Parser
 

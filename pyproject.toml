@@ -20,3 +20,13 @@ dependencies = [
     "watchdog>=6.0.0",
     "xmltodict>=1.0.2",
 ]
+
+[tool.setuptools]
+package-data = {"cveforge" = [".cveforge.toml", ".cveignore", ".cveschema.json", "assets/**"]}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+cveforge = "cveforge.__main__:main"

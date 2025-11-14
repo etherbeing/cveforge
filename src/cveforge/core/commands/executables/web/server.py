@@ -1,9 +1,9 @@
 import threading
 
 from daphne.cli import CommandLineInterface
-from core.commands.run import tcve_command
-from core.context import Context
-from utils.args import ForgeParser
+from cveforge.core.commands.run import tcve_command
+from cveforge.core.context import Context
+from cveforge.utils.args import ForgeParser
 
 
 class ServerParser(ForgeParser):
@@ -35,7 +35,7 @@ def main(context: Context, join: bool):
                     context.SOFTWARE_NAME,
                     "--access-log",
                     log_file.__str__(),
-                    "web.cve_forge.asgi:application",
+                    "cveforge.web.cve_forge.asgi:application",
                 ]
             ],
             daemon=True,

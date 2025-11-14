@@ -12,7 +12,7 @@ try:
 except ImportError:
     from multiprocessing.connection import PipeConnection as Connection
 
-from core.context import Context
+from cveforge.core.context import Context
 
 
 def is_admin() -> bool:

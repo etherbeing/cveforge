@@ -8,9 +8,9 @@ from urllib.parse import ParseResult, urljoin, urlparse
 from bs4 import BeautifulSoup
 from requests import request
 
-from core.commands.run import tcve_command
-from core.context import Context
-from utils.args import ForgeParser
+from cveforge.core.commands.run import tcve_command
+from cveforge.core.context import Context
+from cveforge.utils.args import ForgeParser
 
 
 class DownloadParser(ForgeParser):

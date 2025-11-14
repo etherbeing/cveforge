@@ -1,7 +1,7 @@
 from typing import Any
-from core.commands.run import tcve_command
-from core.context import Context
-from utils.args import ForgeParser
+from cveforge.core.commands.run import tcve_command
+from cveforge.core.context import Context
+from cveforge.utils.args import ForgeParser
 
 
 class ScaffoldParser(ForgeParser):

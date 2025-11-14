@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from core.exceptions.ipc import ForgeException
+from cveforge.core.exceptions.ipc import ForgeException
 
 
 class FileRecordLocking:

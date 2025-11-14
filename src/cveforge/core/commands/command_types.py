@@ -2,7 +2,7 @@ from typing import Any, Callable, NotRequired, Optional, TypedDict, TYPE_CHECKIN
 
 
 if TYPE_CHECKING:
-    from core.commands.run import tcve_command
+    from cveforge.core.commands.run import tcve_command
 
 TCVECommand = TypedDict(
     "TCVECommand",

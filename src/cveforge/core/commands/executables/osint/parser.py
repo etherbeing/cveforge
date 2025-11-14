@@ -1,4 +1,4 @@
-from utils.args import ForgeParser
+from cveforge.utils.args import ForgeParser
 
 
 class OSINTParser(ForgeParser):

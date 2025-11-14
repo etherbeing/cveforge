@@ -3,8 +3,8 @@
 import logging
 import requests
 from .parser import OSINTParser
-from core.commands.run import tcve_command
-from core.context import Context
+from cveforge.core.commands.run import tcve_command
+from cveforge.core.context import Context
 
 
 @tcve_command("osint", parser=OSINTParser, categories=["information", "osint", "intelligence"])

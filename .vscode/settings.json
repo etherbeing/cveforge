@@ -1,5 +1,19 @@
 {
   "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.extraPaths": [
+    "src"
+  ],
+  "python.testing.cwd": "src",
+  "python.envFile": "${workspaceFolder}/.env",
+  "terminal.integrated.env.linux": {
+    "PYTHONPATH": "src"
+  },
+  "terminal.integrated.env.osx": {
+    "PYTHONPATH": "src"
+  },
+  "terminal.integrated.env.windows": {
+    "PYTHONPATH": "src"
+  },
   "cSpell.words": [
     "reinstantiating",
     "tcve"

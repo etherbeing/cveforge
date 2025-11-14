@@ -3,10 +3,10 @@ from typing import Any
 
 import requests
 
-from core.commands.run import tcve_command
-from core.context import Context
-from utils.args import ForgeParser
-from utils.network import get_ifaces
+from cveforge.core.commands.run import tcve_command
+from cveforge.core.context import Context
+from cveforge.utils.args import ForgeParser
+from cveforge.utils.network import get_ifaces
 
 
 class public_ip_parser(ForgeParser):

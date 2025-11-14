@@ -15,7 +15,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Optional, Self, TypedDict
 
-from core.commands.command_types import TCVECommand
+from cveforge.core.commands.command_types import TCVECommand
 
 from tomllib import load
 
@@ -23,8 +23,8 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.history import FileHistory
 
-from utils.module import load_module_from_path
-from utils.args import ForgeParser
+from cveforge.utils.module import load_module_from_path
+from cveforge.utils.args import ForgeParser
 from rich.console import Console
 
 
@@ -134,6 +134,7 @@ class Context:
             "Initializing singleton Context instance, only one in the logs of these message should exist"
         )
         cli_args = Args(prog=self.SOFTWARE_NAME.lower().replace(" ", "_"))
+        cli_args.set_context(self)
         cli_args.setUp()
         namespace = cli_args.parse_args(sys.argv[1:])
         self.live_reload = namespace.live_reload  # type: ignore
@@ -313,7 +314,7 @@ class Context:
     def get_commands(
         self,
     ):
-        from core.commands.run import tcve_command
+        from cveforge.core.commands.run import tcve_command
 
         commands: dict[str, TCVECommand] = {}
         logging.info(

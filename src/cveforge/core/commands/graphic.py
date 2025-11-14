@@ -1,6 +1,6 @@
-from core.commands.run import tcve_command
-from core.context import Context
-from utils.graphic import get_banner
+from cveforge.core.commands.run import tcve_command
+from cveforge.core.context import Context
+from cveforge.utils.graphic import get_banner
 
 
 @tcve_command("banner")

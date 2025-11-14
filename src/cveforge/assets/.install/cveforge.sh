@@ -1,4 +1,4 @@
 #!/usr/bin/bash
-cd {ABSOLUTE_PATH}
-uv run ./ $@
 
+cd {ABSOLUTE_PATH}
+PYTHONPATH=src ~/.local/bin/uv run ./src/cveforge $@

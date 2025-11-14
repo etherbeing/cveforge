@@ -28,10 +28,10 @@ from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.mouse_events import MouseEvent
 from prompt_toolkit.styles import Style
 from pygments.lexers.html import HtmlLexer  # type: ignore
-from core.commands.command_types import TCVECommand
-from core.context import Context
-from core.exceptions.ipc import ForgeException
-from utils.graphic import get_banner
+from cveforge.core.commands.command_types import TCVECommand
+from cveforge.core.context import Context
+from cveforge.core.exceptions.ipc import ForgeException
+from cveforge.utils.graphic import get_banner
 
 
 class CustomCompleter(NestedCompleter):

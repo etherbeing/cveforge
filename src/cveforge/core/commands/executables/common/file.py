@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Any, Optional
-from core.commands.run import tcve_command
+from cveforge.core.commands.run import tcve_command
 from .utils.filesystem.pol import pol_reader
-from core.context import Context
-from utils.args import ForgeParser
+from cveforge.core.context import Context
+from cveforge.utils.args import ForgeParser
 
 
 class command_open_parser(ForgeParser):

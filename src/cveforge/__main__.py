@@ -1,3 +1,4 @@
+#!/usr/bin/python
 """
 Entrypoint and executable for CVE Forge
 author: etherbeing
@@ -10,11 +11,13 @@ import threading
 from time import sleep
 from collections.abc import Callable
 
-from core.context import Context
-from utils.development import FileSystemEvent, Watcher
-from utils.module import refresh_modules
+from cveforge.core.context import Context
+from cveforge.utils.development import FileSystemEvent, Watcher
+from cveforge.utils.module import refresh_modules
+
 # trunk-ignore(ruff/F401)
-import entrypoint # type: ignore  # noqa: F401
+import cveforge.entrypoint  # type: ignore  # noqa: F401
+
 
 def live_reload_trap(
     live_reload_watcher: Watcher, child: threading.Thread
@@ -25,7 +28,7 @@ def live_reload_trap(
     return _trap
 
 
-if __name__ == "__main__":
+def main():
     with Context() as context:
         threading.main_thread().name = "CVE Forge Executor"
         context.configure_logging()
@@ -62,15 +65,18 @@ if __name__ == "__main__":
         if context.live_reload:
             live_reload = Watcher(context=context)
             live_reload.observer.name = "CVE Forge File Observer"
-            watcher = live_reload.start(context.BASE_DIR)
+            live_reload.start(context.BASE_DIR)
 
         while True:
             context.get_commands.cache_clear()
-            modules = refresh_modules(str(context.BASE_DIR.absolute()), exclude=[context.BASE_DIR / pathlib.Path("core/context.py")])
-            
+            modules = refresh_modules(
+                str(context.BASE_DIR.absolute()),
+                exclude=[context.BASE_DIR / pathlib.Path("core/context.py")],
+            )
+
             # Running the main process in a child process to be able to handle live reload and other IPC events
             worker_thread = threading.Thread(
-                target=modules["entrypoint"].main,
+                target=modules["cveforge.entrypoint"].main,
                 name=context.SOFTWARE_NAME,
                 daemon=False,
                 kwargs={"context": context, "modules": modules},
@@ -101,3 +107,7 @@ if __name__ == "__main__":
             "[green] 🚀💻 See you later, I hope you had happy hacking! 😄[/green]"
         )
         exit(context.RT_OK)
+
+
+if __name__ == "__main__":
+    main()

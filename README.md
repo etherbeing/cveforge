@@ -1,17 +1,17 @@
 # CVE Forge: The framework for exploits
 
-The goal of this project is to make CVE development fast and easy by providing a framework that allows quick exploits development.
+The goal of this project is to make CVE development fast and easy by providing a framework that allows quick exploit development.
 
 ## Quickstart
 
 **NOTE: This is a TODO meaning is YET to be implemented**
 ```sh
-poetry init # helps you to work in a virtualenv
-poetry add cve_forge # add the cve_forge dependency
-poetry run cve_forge scaffold payload --verbose-name WannaCry # add to the forge DB the path to the current project
-poetry run cve_forge scaffold exploit --verbose-name "RSA Cracking" --cve-name cve_2025_0002 # add to the forge DB the path to the current project
-poetry run cve_forge scaffold command --verbose-name "sftp" # add to the forge DB the path to the current project
-poetry run cve_forge # now whenever we modify the payload, the exploit or the command project the cve_forge self-refresh
+uv init # helps you to work in a virtualenv
+uv add cveforge # add the cveforge dependency
+uv run cveforge scaffold payload --verbose-name WannaCry # add to the forge DB the path to the current project
+uv run cveforge scaffold exploit --verbose-name "RSA Cracking" --cve-name cve_2025_0002 # add to the forge DB the path to the current project
+uv run cveforge scaffold command --verbose-name "sftp" # add to the forge DB the path to the current project
+uv run cveforge # now whenever we modify the payload, the exploit or the command project the cveforge self-refresh
 ```
 
 ## Developing a Malware or Payload
@@ -34,7 +34,7 @@ The parser is the part of the code that parse the user input and turn it into yo
 into function keywords arguments.
 
 ```py
-from cve_forge import ForgeParser
+from cveforge import ForgeParser
 
 class YourParser(ForgeParser):
     def setUp(self): # Here you may setup your command metadata as its name and arguments
@@ -43,8 +43,8 @@ class YourParser(ForgeParser):
 
 ### The command entrypoint
 ```py
-from cve_forge import tcve_command
-from cve_forge import Context
+from cveforge import tcve_command
+from cveforge import Context
 from .parser import YourParser
 import logging
 
@@ -66,10 +66,16 @@ your_command_name --my-flag "CVE Forge is amazing!!!" # output: info: Running yo
 Developing an exploit is just like creating a command but rather than using the @tcve_command we use the @tcve_exploit like follows:
 
 ```py
-from cve_forge import tcve_exploit
+from cveforge import tcve_exploit
 
 @tcve_exploit("cve_2025_0001", categories=["cve", "privilege escalation"])
 def main(context: Context, **kwargs):
     pass
 ```
 Note the categories is also a possible command for the @tcve_command decorator, is useful for allowing the user to search with different queries for your command
+
+## TODO
+1. Using the completer along with the command create a feedback event that allows the completer to determine which kind of info display the user
+
+## FIXME: Known Bugs
+1. Cannot open two instances at the same time, even if not intended a more user friendly behavior should be implemented

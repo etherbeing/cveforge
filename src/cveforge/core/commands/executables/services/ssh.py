@@ -1,9 +1,9 @@
-from core.commands.run import tcve_command
-from core.context import Context
+from cveforge.core.commands.run import tcve_command
+from cveforge.core.context import Context
 from gettext import gettext as _
 # import paramiko
 
-from utils.args import ForgeParser
+from cveforge.utils.args import ForgeParser
 
 class SSHParser(ForgeParser):
     def setUp(self) -> None:

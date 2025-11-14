@@ -20,9 +20,9 @@ from watchdog.observers.api import BaseObserver
 from watchdog.observers import Observer
 from prompt_toolkit.application.current import get_app_or_none
 
-from core.context import Context
-from core.exceptions.ipc import ForgeException
-from utils.locking import FileRecordLocking
+from cveforge.core.context import Context
+from cveforge.core.exceptions.ipc import ForgeException
+from cveforge.utils.locking import FileRecordLocking
 
 
 class CVEObserver(Observer):  # type: ignore

@@ -10,12 +10,12 @@ import stat
 from functools import lru_cache
 from typing import Any
 
-from core.commands.command_types import TCVECommand
-from core.commands.run import tcve_command
-from core.context import Context
-from core.exceptions.ipc import ForgeException
+from cveforge.core.commands.command_types import TCVECommand
+from cveforge.core.commands.run import tcve_command
+from cveforge.core.context import Context
+from cveforge.core.exceptions.ipc import ForgeException
 from rich.markdown import Markdown
-from utils.args import ForgeParser
+from cveforge.utils.args import ForgeParser
 
 logging.debug("Initializing common commands...")
 
@@ -83,44 +83,55 @@ def log(context: Context, message:str, level: str="DEBUG"):
 
 @tcve_command(name="install")
 def install(context: Context):
-    logging.info("Installing CVE Forge in the user session, system-wide installation is NOT supported yet")
+    try:
+        logging.info("Installing CVE Forge in the user session, system-wide installation is NOT supported yet")
 
-    EXEC_PATH = pathlib.Path("~/.local/bin/cveforge").expanduser()
-    DESKTOP_PATH = pathlib.Path("~/.local/share/applications/cveforge.desktop").expanduser()
-    ICON_PATH = pathlib.Path("~/.local/share/icons/hicolor/256x256/apps/cveforge.png").expanduser()
-    shutil.copy(context.ASSETS_DIR / ".install/cveforge.sh", EXEC_PATH)
-    exec_content = None
+        EXEC_PATH = pathlib.Path("~/.local/bin/cveforge").expanduser()
+        DESKTOP_PATH = pathlib.Path("~/.local/share/applications/cveforge.desktop").expanduser()
+        ICON_PATH = pathlib.Path("~/.local/share/icons/hicolor/256x256/apps/cveforge.png").expanduser()
+        shutil.copy(context.ASSETS_DIR / ".install/cveforge.sh", EXEC_PATH)
+        exec_content = None
+        desktop_content = None
 
-    with open(EXEC_PATH, "r", encoding="utf-8") as file:
-        exec_content = file.read()
-    with open(EXEC_PATH, "w", encoding="utf-8") as file:
-        file.write(exec_content.format(ABSOLUTE_PATH=context.BASE_DIR.absolute()))
+        with open(EXEC_PATH, "r", encoding="utf-8") as file:
+            exec_content = file.read()
+        with open(EXEC_PATH, "w", encoding="utf-8") as file:
+            file.write(exec_content.format(ABSOLUTE_PATH=context.BASE_DIR.absolute().parent.parent))
 
-    os.chmod(EXEC_PATH, EXEC_PATH.stat().st_mode | stat.S_IEXEC)
+        os.chmod(EXEC_PATH, EXEC_PATH.stat().st_mode | stat.S_IEXEC)
 
-    shutil.copy(context.ASSETS_DIR / ".install/cveforge.desktop", DESKTOP_PATH)
-    shutil.copy(context.ASSETS_DIR / "favicon.png", ICON_PATH)
-    context.stdout.print("[success]🪖 🔥 Successfully installed CVE Forge for the current user, files created 3, use debug mode to see where they are located 👊🪖 🔥⚔️[/success]")
-    logging.debug("Successfully written file to: %s", EXEC_PATH)
-    logging.debug("Successfully written file to: %s", DESKTOP_PATH)
-    logging.debug("Successfully written file to: %s", ICON_PATH)
+        shutil.copy(context.ASSETS_DIR / ".install/cveforge.desktop", DESKTOP_PATH)
+
+        with open(DESKTOP_PATH, "r", encoding="utf-8") as file:
+            desktop_content= file.read()
+        with open(DESKTOP_PATH, "w", encoding="utf-8") as file:
+            file.write(desktop_content.format(EXEC_PATH=EXEC_PATH.absolute(), ICON_PATH=ICON_PATH.absolute()))
+        
+        shutil.copy(context.ASSETS_DIR / "favicon.png", ICON_PATH)
+        context.stdout.print("[success]🪖 🔥 Successfully installed CVE Forge for the current user, files created 3, use debug mode to see where they are located 👊🪖 🔥⚔️[/success]")
+        logging.info("Successfully written file to: %s", EXEC_PATH)
+        logging.info("Successfully written file to: %s", DESKTOP_PATH)
+        logging.info("Successfully written file to: %s", ICON_PATH)
+    except Exception as ex:
+        logging.error("Failed to install due to %s", str(ex))
+        uninstall(context)
 
 
 @tcve_command(name="uninstall")
 def uninstall(context: Context):
     logging.info("Uninstalling CVE Forge for the user session")
 
-    EXEC_PATH = pathlib.Path("~/.local/bin/cveforge")
-    DESKTOP_PATH = pathlib.Path("~/.local/share/applications/cveforge.desktop")
-    ICON_PATH = pathlib.Path("~/.local/share/icons/hicolor/256x256/apps/cveforge.png")
+    EXEC_PATH = pathlib.Path("~/.local/bin/cveforge").expanduser()
+    DESKTOP_PATH = pathlib.Path("~/.local/share/applications/cveforge.desktop").expanduser()
+    ICON_PATH = pathlib.Path("~/.local/share/icons/hicolor/256x256/apps/cveforge.png").expanduser()
     EXEC_PATH.unlink(True)
     DESKTOP_PATH.unlink(True)
     ICON_PATH.unlink(True)
 
     context.stdout.print("[success]👋🏃💨 Successfully uninstalled CVE Forge for the current user, files deleted 3, use debug mode to see where they were located[/success]")
-    logging.debug("Successfully removed file in: %s", EXEC_PATH)
-    logging.debug("Successfully removed file in: %s", DESKTOP_PATH)
-    logging.debug("Successfully removed file in: %s", ICON_PATH)
+    logging.info("Successfully removed file in: %s", EXEC_PATH)
+    logging.info("Successfully removed file in: %s", DESKTOP_PATH)
+    logging.info("Successfully removed file in: %s", ICON_PATH)
 
 @tcve_command(name="info")
 def info(context: Context):

@@ -2,11 +2,12 @@
 Name=CVE Forge
 GenericName=Vulnerability Research Framework
 Comment=Develop, test and report CVEs, payloads and fuzzers
-Exec=~/.local/bin/cveforge %u
-Icon=~/.local/share/icons/hicolor/256x256/apps/cveforge.png
+Exec=/usr/share/kali-menu/exec-in-shell "{EXEC_PATH}"
+Icon={ICON_PATH}
 Terminal=true
 Type=Application
 Categories=Development;Security;Utility;
 StartupNotify=false
 MimeType=application/x-executable;
 Keywords=CVE;Vulnerability;Exploit;Fuzzing;Forensics;OSINT;
+X-Kali-Package=cveforge

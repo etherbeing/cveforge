@@ -1,7 +1,7 @@
 import os
 import random
 
-from core.context import Context
+from cveforge.core.context import Context
 
 
 def get_banner(context: Context):

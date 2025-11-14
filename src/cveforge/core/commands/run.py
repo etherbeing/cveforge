@@ -9,11 +9,11 @@ from typing import (
     Sequence,
 )
 
-from core.commands.command_types import TCVECommand
-from core.commands.exploits import ExploitParser
-from core.context import Context
-from core.exceptions.ipc import ForgeException
-from utils.args import ForgeParser
+from cveforge.core.commands.command_types import TCVECommand
+from cveforge.core.commands.exploits import ExploitParser
+from cveforge.core.context import Context
+from cveforge.core.exceptions.ipc import ForgeException
+from cveforge.utils.args import ForgeParser
 
 
 class tcve_command:
@@ -99,6 +99,8 @@ class tcve_command:
         extra_args: Optional[Sequence[str]] = None,
         **kwargs: dict[Any, Any]
     ):
+        if self._parser:
+            self._parser.set_context(context)
         extra_args = args or extra_args
         logging.debug(
             "Calling decorated function %s with %s args: %s extra: %s kwargs: %s",

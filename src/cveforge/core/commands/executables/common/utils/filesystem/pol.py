@@ -5,8 +5,8 @@ from typing import Any, Literal
 from rich.markdown import Markdown
 from rich.table import Column, Table
 
-from core.context import Context
-from utils.args import ForgeParser
+from cveforge.core.context import Context
+from cveforge.utils.args import ForgeParser
 
 
 class pol_reader_parser(ForgeParser):

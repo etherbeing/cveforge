@@ -2,7 +2,7 @@ import argparse
 import subprocess
 import sys
 from typing import TextIO
-from utils.args import ForgeParser
+from cveforge.utils.args import ForgeParser
 
 
 class Parser(ForgeParser):

@@ -5,9 +5,9 @@ Handle sudo command
 import logging
 from typing import cast
 
-from core.context import Context
-from core.exceptions.ipc import ForgeException
-from utils.sudo import is_admin
+from cveforge.core.context import Context
+from cveforge.core.exceptions.ipc import ForgeException
+from cveforge.utils.sudo import is_admin
 
 try:
     from multiprocessing.connection import Connection

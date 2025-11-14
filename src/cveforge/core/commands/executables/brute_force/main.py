@@ -5,9 +5,9 @@ from typing import Any
 from prompt_toolkit import prompt
 from requests import request
 
-from core.commands.run import tcve_command
+from cveforge.core.commands.run import tcve_command
 from .parser import BruteForceParser
-from core.context import Context
+from cveforge.core.context import Context
 
 
 CurlParser = ArgumentParser(prog="curl")
