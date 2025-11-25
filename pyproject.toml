@@ -6,8 +6,11 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.14.2",
+    "bip-utils>=2.10.0",
     "daphne>=4.2.1",
     "django>=5.2.8",
+    "eth-account>=0.13.7",
+    "numpy>=2.3.5",
     "packaging>=25.0",
     "paramiko>=4.0.0",
     "pathspec>=0.12.1",
@@ -17,6 +20,7 @@ dependencies = [
     "requests>=2.32.5",
     "rich>=14.2.0",
     "scapy>=2.6.1",
+    "typer>=0.20.0",
     "watchdog>=6.0.0",
     "xmltodict>=1.0.2",
 ]

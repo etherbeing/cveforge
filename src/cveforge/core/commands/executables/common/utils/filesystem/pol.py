@@ -1,22 +1,16 @@
 import struct
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from rich.markdown import Markdown
 from rich.table import Column, Table
+import typer
 
 from cveforge.core.context import Context
-from cveforge.utils.args import ForgeParser
 
 
-class pol_reader_parser(ForgeParser):
-    """Argument parser for pol reader"""
 
-    def setUp(self, *args: Any, **kwargs: Any) -> None:
-        self.add_argument("file", help="Registry .pol file to be viewed")
-
-
-def pol_reader(context: Context, file: Path):
+def pol_reader(context: Context, file: Annotated[Path, typer.Argument]):
     """
     Reader for windows POL files as per described in:
     https://learn.microsoft.com/en-us/previous-versions/windows/desktop/policy/registry-policy-file-format

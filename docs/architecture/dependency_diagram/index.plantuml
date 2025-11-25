@@ -1,0 +1,81 @@
+@startuml 
+
+title CVE Forge - Runtime Sequence Diagram
+
+actor User as U
+participant "__main__.py\n(Main Thread)" as MAIN
+participant "entrypoint.py\n(Shell Thread)" as SHELL
+participant "live_reload.py\n(Live Reload Thread)" as LR
+participant "Context\n(Singleton)" as CTX
+participant "ForgeParser\n(Custom CLI Parser)" as PARSER
+participant "Command/Exploit Loader\n(@tcve_* decorators)" as LOADER
+participant "Program Thread\n(Executor)" as EXEC
+
+== Startup ==
+
+U -> MAIN: Run `cveforge` CLI\n(or invoked via interactive shell)
+MAIN -> CTX: Initialize global Context (Singleton)
+CTX --> MAIN: Context instance returned
+
+MAIN -> MAIN: Start Live Reload Thread
+MAIN -> LR: spawn thread()
+
+MAIN -> MAIN: Start Program Executor Thread
+MAIN -> EXEC: spawn thread()
+
+MAIN -> SHELL: spawn thread(entrypoint.py)\nInitialize interactive CLI
+
+== Command Registration Phase ==
+
+MAIN -> LOADER: Import commands/exploits
+LOADER -> CTX: Register @tcve_command metadata
+LOADER -> CTX: Register @tcve_exploit metadata
+LOADER -> CTX: Register @tcve_option metadata
+CTX --> LOADER: Acknowledged (stored in global registry)
+
+== CLI Entry Path (External Bash) ==
+
+U -> MAIN: Provide CLI arguments
+MAIN -> PARSER: parse(arguments)
+PARSER -> CTX: Load dynamic command registry
+CTX --> PARSER: registered commands/options
+PARSER --> MAIN: ParsedCommand object
+
+MAIN -> EXEC: Execute(parsed_command)
+
+EXEC -> EXEC: Run command logic\n(main.py inside command/exploit)
+EXEC -> CTX: Read/Write metadata
+EXEC -> MAIN: return result
+
+MAIN -> U: output stdout/stderr\n(using custom io.py)
+
+== Interactive Shell Path ==
+
+U -> SHELL: Type command in interactive prompt
+SHELL -> PARSER: parse(shell_input)
+PARSER -> CTX: Resolve command
+CTX --> PARSER: command metadata
+PARSER --> SHELL: ParsedCommand
+
+SHELL -> EXEC: Execute(parsed_command)
+EXEC -> CTX: update context state
+EXEC -> SHELL: result
+
+SHELL -> U: print output
+
+== Live Reload Thread Flow ==
+
+LR -> CTX: Watch filesystem changes
+CTX --> LR: State info
+LR -> LOADER: Reload modules if needed
+LOADER -> CTX: Update registry
+
+== End ==
+
+U -> MAIN: exit / Ctrl-C
+MAIN -> LR: stop thread
+MAIN -> SHELL: stop interactive shell
+MAIN -> EXEC: terminate executor
+MAIN --> U: shutdown message
+
+@enduml

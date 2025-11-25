@@ -16,6 +16,7 @@ from cveforge.core.context import Context
 context = Context()
 if not context.data_dir:
     raise Exception("CVE Forge tried to run the web server without been ready this must be reported as is not intended")
+
 BASE_DIR = context.data_dir # Uses the CVE Forge data dir instead
 
 # Quick-start development settings - unsuitable for production
@@ -40,6 +41,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.syndication",
 
     "cveforge.web.apps.security",
     "cveforge.web.apps.base",
@@ -124,6 +126,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = context.STATIC_DIR
+
+MEDIA_URL = "media/"
+MEDIA_ROOT = context.MEDIA_DIR
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

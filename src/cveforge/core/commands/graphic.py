@@ -3,7 +3,7 @@ from cveforge.core.context import Context
 from cveforge.utils.graphic import get_banner
 
 
-@tcve_command("banner")
+@tcve_command(name="banner")
 def banner(context: Context):
     context.stdout.print(
         get_banner(context),

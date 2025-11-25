@@ -17,7 +17,9 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path
+from ..apps.base.feeds.sample import LatestCVEFeed
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("rss/", LatestCVEFeed(), name="cves-rss")
 ]
