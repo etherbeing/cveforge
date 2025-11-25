@@ -2,7 +2,8 @@ import os
 import pathlib
 import subprocess
 import sys
-from typing import Iterable
+from typing import Optional
+from typing_extensions import Annotated
 
 import typer
 
@@ -12,10 +13,11 @@ from cveforge.core.context import Context
 
 @tcve_command()
 def sudo(
-    context: Context,
     command: str = typer.Argument(),
-    remainder: Iterable[str] = typer.Argument(),
+    remainder: Annotated[Optional[list[str]], typer.Argument()] = None,
 ):
+    remainder = remainder or []
+    context: Context = Context()
     if os.getuid() != 0:  # TODO make it compatible with windows as well
         context.console_session.app.refresh_interval = 0
         python_bin = None

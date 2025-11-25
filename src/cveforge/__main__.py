@@ -7,9 +7,12 @@ license: Apache
 
 import logging
 import pathlib
+import sys
 import threading
 from time import sleep
 from collections.abc import Callable
+
+import typer
 
 from cveforge.core.context import Context
 from cveforge.utils.development import FileSystemEvent, Watcher
@@ -29,10 +32,11 @@ def live_reload_trap(
 
 
 def main():
+    typer_root: typer.Typer = typer.Typer(name="cveforge", invoke_without_command=True)
     with Context() as context:
-        threading.main_thread().name = "CVE Forge Executor"
-        context.configure_logging()
-
+        context.set_context(context)
+        context.set_root_typer_app(typer_root)
+        context.prepare(sys.argv[1:])
         if context.argv_command:
             logging.debug("Running command directly from the command line")
             args = []
@@ -60,53 +64,53 @@ def main():
                     f"[red]Invalid command given, {context.argv_command} is not recognized as an internal command of CVE Forge[/red]"
                 )
                 exit(context.RT_INVALID_COMMAND)
+        else:
+            live_reload = None
+            if context.live_reload:
+                live_reload = Watcher(context=context)
+                live_reload.observer.name = "CVE Forge File Observer"
+                live_reload.start(context.BASE_DIR)
 
-        live_reload = None
-        if context.live_reload:
-            live_reload = Watcher(context=context)
-            live_reload.observer.name = "CVE Forge File Observer"
-            live_reload.start(context.BASE_DIR)
+            while True:
+                context.get_commands.cache_clear()
+                modules = refresh_modules(
+                    str(context.BASE_DIR.absolute()),
+                    exclude=[context.BASE_DIR / pathlib.Path("core/context.py")],
+                )
 
-        while True:
-            context.get_commands.cache_clear()
-            modules = refresh_modules(
-                str(context.BASE_DIR.absolute()),
-                exclude=[context.BASE_DIR / pathlib.Path("core/context.py")],
-            )
+                # Running the main process in a child process to be able to handle live reload and other IPC events
+                worker_thread = threading.Thread(
+                    target=modules["cveforge.entrypoint"].main,
+                    name=context.SOFTWARE_NAME,
+                    daemon=False,
+                    kwargs={"context": context, "modules": modules},
+                )
+                worker_thread.start()
+                if live_reload:
+                    live_reload.live_reload = live_reload_trap(
+                        live_reload_watcher=live_reload, child=worker_thread
+                    )  # type: ignore
+                    worker_thread.join()
 
-            # Running the main process in a child process to be able to handle live reload and other IPC events
-            worker_thread = threading.Thread(
-                target=modules["cveforge.entrypoint"].main,
-                name=context.SOFTWARE_NAME,
-                daemon=False,
-                kwargs={"context": context, "modules": modules},
-            )
-            worker_thread.start()
-            if live_reload:
-                live_reload.live_reload = live_reload_trap(
-                    live_reload_watcher=live_reload, child=worker_thread
-                )  # type: ignore
-                worker_thread.join()
-
-                if context.exit_status == context.EC_EXIT:
-                    break
+                    if context.exit_status == context.EC_EXIT:
+                        break
+                    else:
+                        sleep(1.5)
                 else:
-                    sleep(1.5)
-            else:
-                worker_thread.join()
-                if context.exit_status == context.EC_RELOAD:
-                    sleep(1.5)
-                    continue
-                break
+                    worker_thread.join()
+                    if context.exit_status == context.EC_RELOAD:
+                        sleep(1.5)
+                        continue
+                    break
 
-        if live_reload:
-            live_reload.stop()
+            if live_reload:
+                live_reload.stop()
 
-        logging.debug("Child exit code, processed successfully exiting now...")
-        context.stdout.print(
-            "[green] 🚀💻 See you later, I hope you had happy hacking! 😄[/green]"
-        )
-        exit(context.RT_OK)
+            logging.debug("Child exit code, processed successfully exiting now...")
+            context.stdout.print(
+                "[green] 🚀💻 See you later, I hope you had happy hacking! 😄[/green]"
+            )
+            exit(context.RT_OK)
 
 
 if __name__ == "__main__":

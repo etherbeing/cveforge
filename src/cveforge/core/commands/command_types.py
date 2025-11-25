@@ -2,13 +2,13 @@ from typing import Any, Callable, NotRequired, Optional, TypedDict, TYPE_CHECKIN
 
 
 if TYPE_CHECKING:
-    from cveforge.core.commands.run import tcve_command
+    from cveforge.core.commands.run import tcve_base
 
 TCVECommand = TypedDict(
     "TCVECommand",
     {
         "name": str,
-        "command": 'tcve_command',
+        "command": 'tcve_base',
         "post-process": NotRequired[Optional[Callable[..., Any]]],
     },
 )

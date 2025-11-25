@@ -1,14 +1,10 @@
 from pathlib import Path
-from typing import Any, Optional
+from typing import Annotated, Optional
+
+import typer
 from cveforge.core.commands.run import tcve_command
 from .utils.filesystem.pol import pol_reader
 from cveforge.core.context import Context
-from cveforge.utils.args import ForgeParser
-
-
-class command_open_parser(ForgeParser):
-    def setUp(self, *args: Any, **kwargs: Any) -> None:
-        self.add_argument("file", type=Path)
 
 
 def get_type(file: Path) -> Optional[str]:
@@ -19,15 +15,15 @@ def get_type(file: Path) -> Optional[str]:
     # name = parts[1][::-1]
     return ext.lower()
 
-@tcve_command(name="open", parser=command_open_parser)
-def command_open(context: Context, file: Path):
+
+@tcve_command(name="open")
+def command_open(file: Annotated[Path, typer.Argument()]):
     """
     Handle file open in the CVE Forge context
     """
+    context = Context()
     if not file.exists():
-        raise FileNotFoundError(
-            f"{file} does not exist, please check for any typo"
-        )
+        raise FileNotFoundError(f"{file} does not exist, please check for any typo")
     if get_type(file) == "pol":
         context.stdout.print(pol_reader(context=context, file=file))
     else:

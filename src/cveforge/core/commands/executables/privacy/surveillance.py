@@ -1,24 +1,18 @@
 from functools import lru_cache
-from typing import Any
+from typing import Optional
 
 import requests
+import typer
 
 from cveforge.core.commands.run import tcve_command
 from cveforge.core.context import Context
-from cveforge.utils.args import ForgeParser
 from cveforge.utils.network import get_ifaces
 
 
-class public_ip_parser(ForgeParser):
-    def __init__(self, *args: list[Any], **kwargs: dict[str, Any]):
-        super().__init__(*args, **kwargs)  # type: ignore
-
-    def setUp(self, *args: Any, **kwargs: Any) -> None:
-        self.add_argument("--interface", "-i", choices=get_ifaces().keys())
-
-@tcve_command(name="ip", parser=public_ip_parser)
-def public_ip(context: Context, interface: str):
+@tcve_command()
+def ip(interface: Optional[str] = typer.Option(default=None)):
     """Obtain this computer ip"""
+    context: Context = Context()
     if interface:
         context.stdout.print(get_ifaces().get(interface, None))
     else:

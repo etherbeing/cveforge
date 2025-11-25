@@ -9,10 +9,8 @@ import platform
 import shlex
 import socket
 import subprocess
-import sys
 from types import ModuleType
 from django.utils.timezone import datetime
-from functools import reduce
 from pathlib import Path
 from typing import Any, Callable, Iterable, List, Optional, Self, Tuple, cast
 
@@ -23,7 +21,7 @@ from prompt_toolkit.completion.base import CompleteEvent, Completion
 from prompt_toolkit.completion.nested import NestedDict
 from prompt_toolkit.document import Document
 from prompt_toolkit.formatted_text import OneStyleAndTextTuple, StyleAndTextTuples
-from prompt_toolkit.history import FileHistory
+from prompt_toolkit.history import FileHistory, DummyHistory
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.mouse_events import MouseEvent
 from prompt_toolkit.styles import Style
@@ -44,7 +42,7 @@ class CustomCompleter(NestedCompleter):
     def get_actual_command(self, for_command: str):
         parts = for_command.split() or [""]
         commands, aliases = self.context.get_commands()
-        available = commands|aliases
+        available = commands | aliases
         command = available.get(parts[0], None)
         if not command:
             return
@@ -61,8 +59,9 @@ class CustomCompleter(NestedCompleter):
                 options[key] = cls.from_nested_dict(value, context)  # type: ignore
             elif isinstance(value, set):
                 options[key] = cls.from_nested_dict(
-                    {item: None for item in value}, context # type: ignore
-                )  
+                    {item: None for item in value},  # type: ignore
+                    context,
+                )
             else:
                 assert value is None
                 options[key] = None
@@ -101,60 +100,22 @@ class CustomCompleter(NestedCompleter):
                         )
         return executables
 
-    def _get_args_completion(self, for_command: str) -> Iterable[Completion]:
-        current_command = self.get_actual_command(for_command)
-        if not current_command:
-            return []
-        parser = current_command.get("command").get_parser()
-        if parser:
-            command_parts = for_command.split()
-            last_part = command_parts[-1]
-            new_one = (
-                for_command.endswith(" ") or current_command.get("name") == last_part
-            )
-            action_names = reduce(
-                lambda x, y: x + y,
-                [
-                    list(action.option_strings or cast(list[str], action.choices) or [])
-                    for action in parser._actions
-                ],
-            )
-            action_names = filter(
-                lambda action_name: new_one or action_name.startswith(last_part),
-                action_names,
-            )
-            # logging.info(list(action_names))
-            command_parts[-1] = "{action_name}"
-            return [  # TODO make the completion to work recursively within the subparsers to auto complete everything
-                Completion(
-                    text=" ".join(command_parts).format(action_name=action_name),
-                    start_position=-len(for_command) - 1,
-                    display=action_name,
-                )
-                for action_name in action_names
-            ]
-        else:
-            return []
-
-    def _get_path_completion(self, command: str) -> Iterable[Completion]:
-        parts = command.split()
-        if not parts:
-            return []
-        last_part = parts[-1]
-        suggestions: Iterable[Completion] = []
-        if last_part.startswith("/"):
-            return []
-        if len(parts) > 1:
-            try:
-                for suggestion in Path(os.getcwd()).glob(last_part + "*"):
-                    relative_path = suggestion.relative_to(os.getcwd())
-                    str_path = str(relative_path)
-                    suggestions.append(
-                        Completion(text=str_path, start_position=-len(last_part))
+    def _get_tree_completions(self, command: str):
+        completions: list[Completion] = []
+        current_command = self.get_actual_command(command)
+        return completions
+        if current_command:
+            parser = current_command.get("command").get_parser()
+            if parser:
+                last_part = shlex.split(command)[-1]
+                completions = [
+                    Completion(
+                        text=guess, start_position=-len(last_part), display=guess
                     )
-            except NotImplementedError:
-                pass
-        return suggestions
+                    for guess in parser.guess_what(command)
+                ]  # return a tree containing guesses
+
+        return completions
 
     def get_completions(
         self, document: Document, complete_event: CompleteEvent
@@ -169,8 +130,9 @@ class CustomCompleter(NestedCompleter):
 
         return [
             *completions,
-            *self._get_args_completion(command),
-            *self._get_path_completion(command),
+            *self._get_tree_completions(command),
+            # *self._get_args_completion(command),
+            # *self._get_path_completion(command),
         ]
 
 
@@ -240,6 +202,10 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
 |──[ 🌐 """,
         ),
         ("class:title", f"Web UI: http://{context.web_address}"),
+        (
+            "class:colon",
+            f" << {context.network_session} >>" if context.network_session else "",
+        ),
         ("class:colon", " ]"),
         (
             "class:colon",
@@ -254,13 +220,6 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
         (
             "class:host",
             f"""{f" Proxy: << {context.proxy_client} >>" if context.proxy_client else ""}""",
-        ),
-        ("class:colon", "\n|" if context.command_context.get("remote_path") else ""),
-        (
-            "class:colon",
-            f"──[{context.command_context.get('remote_path')}]"
-            if context.command_context.get("remote_path")
-            else "",
         ),
         (
             "class:colon",
@@ -304,14 +263,17 @@ def main(context: Context, modules: dict[str, ModuleType]) -> None:
     def get_current_message(*args: list[str], **kwargs: dict[str, Any]):
         return get_message(context=context)
 
+    default_session_history = FileHistory(str(context.history_path))
+    default_auto_suggest = AutoSuggestFromHistory()
+    default_lexer = CustomLexer(HtmlLexer, context=context)
     session = PromptSession[str](
         message=get_current_message,
         completer=completer,
-        lexer=CustomLexer(HtmlLexer, context=context),
+        lexer=default_lexer,
         style=style,
-        history=FileHistory(str(context.history_path)),
-        auto_suggest=AutoSuggestFromHistory(),
-        complete_in_thread=False,
+        history=default_session_history,
+        auto_suggest=default_auto_suggest,
+        complete_in_thread=True,
         refresh_interval=0.25,
     )
     context.set_console_session(session)
@@ -330,11 +292,17 @@ def main(context: Context, modules: dict[str, ModuleType]) -> None:
 
     while True:
         try:
+            session.default_buffer.history = default_session_history
             command: str = session.prompt(
-                get_current_message, in_thread=False, refresh_interval=0.25
+                get_current_message,
+                in_thread=False,
+                refresh_interval=0.25,
+                is_password=False,
             )
             if not command:
                 continue
+            session.default_buffer.history = DummyHistory()  # This makes the programs to run without history enabled useful for when we are prompting for passwords
+
             command = command.strip()
             base = shlex.split(command)
             args = None
@@ -349,14 +317,14 @@ def main(context: Context, modules: dict[str, ModuleType]) -> None:
             ):  # defaults to CLI
                 command = command.removeprefix(context.SYSTEM_COMMAND_TOKEN).strip()
                 subprocess.call(
-                    shlex.split(command),
-                    stdin=session.input.fileno(),
-                    stdout=session.output.fileno(),
-                    stderr=sys.stderr,
+                    command,
+                    stdin=context.console_session.input.fileno(),
+                    # trunk-ignore(bandit/B602)
+                    shell=True,  # lets remember this is currently a cli program so OS injection is intended :-) (unauthorized NOT)
                 )
             elif cve_command:
                 context.command_context.update({"current_command": cve_command})
-                cve_command.get("command").run(context, extra_args=args)
+                cve_command.get("command").run(*(args or []))
             else:
                 closest_matches = difflib.get_close_matches(
                     base, available_callables.keys(), n=1

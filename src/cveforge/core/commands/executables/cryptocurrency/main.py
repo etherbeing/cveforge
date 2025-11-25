@@ -40,11 +40,11 @@ def derive_privkey_from_mnemonic(mnemonic: str, derivation_path_index: int = 0):
 
 @tcve_command()
 def crypto(
-    context: Context,
     network_name: str = typer.Argument(default="eth"),
     index: int = typer.Option(default=0),
     mnemonic_to_private_key: bool = typer.Option(default=False),
 ):
+    context: Context = Context()
     if network_name == "eth":
         if mnemonic_to_private_key:
             mnemonic: str = context.console_session.prompt(

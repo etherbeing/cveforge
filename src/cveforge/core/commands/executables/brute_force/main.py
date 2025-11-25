@@ -1,12 +1,12 @@
 import shlex
 from argparse import ArgumentParser
-from typing import Any
+from typing import Annotated, Any, Optional
 
 from prompt_toolkit import prompt
 from requests import request
+import typer
 
 from cveforge.core.commands.run import tcve_command
-from .parser import BruteForceParser
 from cveforge.core.context import Context
 
 
@@ -85,14 +85,13 @@ def process_cve_script(script: str, context: dict[str, Any]):
     return result
 
 
-@tcve_command("brute_force", parser=BruteForceParser)
+@tcve_command()
 def brute_force(
-    context: Context,
-    query_param: list[str] | None,
-    body_json: list[str] | None,
-    body_form: list[str] | None,
-    expects: str | None,
-    wordlist: str,
+    query_param: Annotated[Optional[list[str]], typer.Argument()] = None,  # noqa: F821
+    body_json: Annotated[Optional[list[str]], typer.Option()] = None,
+    body_form: Annotated[Optional[list[str]], typer.Option()] = None,
+    expects: Optional[str] = typer.Option(),
+    wordlist: str = typer.Option(),
 ):
     """
     This command turns a curl command into a bruteforceable query, tested against DVWA brute_force
@@ -111,6 +110,7 @@ def brute_force(
         $ brute_force -Q username -Q password --expects="ok and 'Username and/or password incorrect.' not in body "
         $ brute_force -Q username -Q password --expects "'Username and/or password incorrect.' not in body" -W /usr/share/dict/rockyou.txt 
     """
+    context = Context()
     command = prompt("Enter the CURL command:\n")
     parts = command.split(" ", 1)
     assert len(parts) == 2, "Invalid CURL command given"
