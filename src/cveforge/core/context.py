@@ -248,7 +248,7 @@ class Context:
     def get_commands(
         self,
     ):
-        from cveforge.core.commands.run import tcve_base
+        from cveforge.core.commands.run import tcve_command
 
         commands: dict[str, TCVECommand] = {}
         assert self.DEFAULT_CVE_CONFIG_PATH.exists()
@@ -301,7 +301,7 @@ class Context:
                     for name, element in vars(module).items():
                         if name.startswith("_"):
                             continue
-                        elif isinstance(element, tcve_base):
+                        elif isinstance(element, tcve_command):
                             element.on("ready") # do it here so to avoid 
                             commands[element.name] = {
                                 "name": element.name,
