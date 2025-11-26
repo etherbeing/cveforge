@@ -4,3 +4,4 @@
 *.egg-info
 /dist/
 .venv/
+/src/cveforge/.cveschema.json

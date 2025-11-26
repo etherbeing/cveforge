@@ -303,6 +303,7 @@ def main(context: Context, modules: dict[str, ModuleType]) -> None:
             )
             if not command:
                 continue
+            context.stdout.print()  # just a new line after each command
             session.default_buffer.history = DummyHistory()  # This makes the programs to run without history enabled useful for when we are prompting for passwords
 
             command = command.strip()
