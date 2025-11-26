@@ -17,14 +17,11 @@ from typing import Any, Literal, Optional, Self, TypedDict
 import typer
 
 
-from cveforge.core.cli import CVEForgeExecutable
 from cveforge.core.commands.command_types import TCVECommand
 
 from tomllib import load
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.history import FileHistory
 
 from cveforge.utils.module import load_module_from_path
 from rich.console import Console
@@ -92,7 +89,7 @@ class CommandContext(TypedDict):
     current_command: TCVECommand | None
 
 
-class Context(CVEForgeExecutable):
+class Context:
     """Store all the settings and anything that is needed to be used global"""
 
     _singleton_instance = None
@@ -117,6 +114,7 @@ class Context(CVEForgeExecutable):
         threading.main_thread().name = "CVE Forge Executor"
 
         self.proxy_client: Optional[Any] = None
+        self._cli = typer.Typer()
 
         if platform.system() == "Windows":
             self.data_dir = Path(
@@ -140,16 +138,17 @@ class Context(CVEForgeExecutable):
         self.STATIC_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
         self.MEDIA_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
 
-    def configure_logging(self):
+    def configure_logging(self, log_level: int):
         """
         Configure python default logger or root logger to store logs in a predetermined place
         """
+        self._log_level = log_level
         log_file = str(self.log_file).format(host_id=getpass.getuser())
         self.stdout.print(f"[yellow]Storing logs at: {log_file}[/yellow]")
         Path(log_file).touch(mode=0o755)
         self.setup_fd()  # make sure to get the correct stdout
         basicConfig(
-            level=(self.LOG_LEVEL),
+            level=log_level,
             filename=log_file,  # if self.log_to_stdout else log_file,
             filemode="a",  # Use 'a' for appending logs, or 'w' to overwrite
             format=self.LOG_FORMAT,
@@ -158,7 +157,10 @@ class Context(CVEForgeExecutable):
         )
         logging.debug("Logging setup correctly")
 
-    live_reload: bool = False  # Live means actual production environment while, not live is when developing the forge
+    @property
+    def cli(self):
+        return self._cli
+
     SOFTWARE_NAME = "CVE Forge"
     BASE_DIR = Path(__file__).parent.parent
     WEB_DIR = BASE_DIR / "web"
@@ -172,10 +174,12 @@ class Context(CVEForgeExecutable):
     MEDIA_DIR = Path("/var/www/html/cveforge/media/")
     TEXT_ART_DIR = ASSETS_DIR / "text_art"
     DEFAULT_CVE_CONFIG_PATH = BASE_DIR / ".cveforge.toml"
+    
     # Exception Codes, useful for tree level deep communication
     EC_RELOAD = 3000
     EC_EXIT = 3001
     EC_CONTINUE = 3002
+    
     # Return codes, useful for arbitrary exits from the program
     RT_OK = 0
     RT_INVALID_COMMAND = 4000
@@ -189,7 +193,7 @@ class Context(CVEForgeExecutable):
 
     # Dynamic data needs class instantiation
     data_dir = None
-    web_address = "127.0.0.1:3780"
+    _web_address = "127.0.0.1:3780"
     history_path: Path
     custom_history_path: Path
     protocol_name: Optional[str] = None
@@ -198,9 +202,22 @@ class Context(CVEForgeExecutable):
 
     _command_context: CommandContext = {"current_command": None}
 
+    _log_level: int = logging.INFO
+
     stdout: Console = Console()
     stdin: Console = Console()
     stderr: Console = Console()
+
+    def set_web_address(self, value: str):
+        self._web_address = value # TODO check is valid
+
+    @property
+    def web_address(self):
+        return self._web_address
+
+    @property
+    def log_level(self):
+        return self._log_level
 
     @property
     def console_session(self):
@@ -231,13 +248,9 @@ class Context(CVEForgeExecutable):
     def get_commands(
         self,
     ):
-        from cveforge.core.commands.run import tcve_command
+        from cveforge.core.commands.run import tcve_base
 
         commands: dict[str, TCVECommand] = {}
-        logging.info(
-            "Loading commands...%s",
-            " (commands are live reloaded)" if not self.live_reload else "",
-        )
         assert self.DEFAULT_CVE_CONFIG_PATH.exists()
         command_paths: list[Path] = [self.COMMANDS_DIR]
         with self.DEFAULT_CVE_CONFIG_PATH.open("rb") as config:
@@ -288,7 +301,8 @@ class Context(CVEForgeExecutable):
                     for name, element in vars(module).items():
                         if name.startswith("_"):
                             continue
-                        elif issubclass(type(element), tcve_command):
+                        elif isinstance(element, tcve_base):
+                            element.on("ready") # do it here so to avoid 
                             commands[element.name] = {
                                 "name": element.name,
                                 "command": element,
@@ -316,40 +330,6 @@ class Context(CVEForgeExecutable):
                 commands.items(),  # pyright: ignore[reportUnknownMemberType]
             )
         ), aliases
-
-    def __call__(
-        self,
-        live_reload: bool = typer.Option(default=False),
-        log_level: Literal["ERROR", "DEBUG", "INFO", "WARNING"] = typer.Option(
-            default="INFO",
-        ),
-        http_timeout: int = typer.Option(default=30),
-        web_address: str = typer.Option(default="127.0.0.1:3780"),
-        command: Optional[str] = typer.Argument(
-            help="""
-                (Optional) CVE Forge command to run, e.g: \"ip\"; The example before does returns the \
-                public ip of the user and exit after that, this suppress the interactive behavior of \
-                the CVE Forge software and is mostly useful for when running quick commands.
-            """,
-            default=None,
-        ),
-        # trunk-ignore(ruff/B008)
-        command_args: Optional[list[str]] = typer.Argument(default=None),
-    ) -> Any:
-        self.live_reload = live_reload
-        self.LOG_LEVEL = logging.getLevelNamesMapping().get(log_level, logging.INFO)
-        self.http_timeout = http_timeout
-        self.web_address = web_address
-        self.network_session = CVESession(self, "local", None)
-
-        if command:
-            # We are in CLI mode
-            self.argv_command: list[str] = command_args or []
-            self.argv_command.insert(0, command)
-        else:
-            self.argv_command = []
-
-        self.configure_logging()
 
     def __enter__(
         self,

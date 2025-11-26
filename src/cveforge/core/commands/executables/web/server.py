@@ -28,7 +28,7 @@ def main(join: bool=typer.Option(default=False)):
                     "-p",
                     port,
                     "-v",
-                    str(context.LOG_LEVEL // 10),
+                    str(context.log_level // 10),
                     "-s",
                     context.SOFTWARE_NAME,
                     "--access-log",

@@ -19,6 +19,7 @@ def run(command_name: str = typer.Argument(), args: Annotated[Optional[list[str]
     """
     Run an exploit using the exploit expected params
     """
+    print(tcve_exploit._exploits)
     pass
     # return tcve_exploit.run(command_name, args)
 

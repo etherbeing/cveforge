@@ -1,6 +1,6 @@
 [core]
-commands=[
+commands = [
     "~/.local/share/cve_forge/extras", # look for all folders inside of extras for modules
     "../../extras",
-    "exploits"
+    "exploits",
 ]

@@ -1,7 +1,6 @@
 """File to handle run the CVE Forge commands"""
 
 from datetime import datetime
-from http import HTTPStatus
 from typing import (
     Any,
     Callable,
@@ -9,7 +8,6 @@ from typing import (
     Literal,
     Optional,
     Self,
-    override,
 )
 
 from django.utils.translation import gettext as _
@@ -17,7 +15,6 @@ import typer
 
 from cveforge.core.commands.command_types import TCVECommand
 from cveforge.core.context import Context
-from cveforge.core.exceptions.ipc import ForgeException
 
 
 context = Context()
@@ -52,6 +49,7 @@ class tcve_base:
             "ready": [],
             "completed": [],
         }
+        self._subcommands: dict[str, typer.Typer] = {}
 
         if self._auto_start:
             self.register("ready", self.run)
@@ -90,6 +88,10 @@ class tcve_base:
         return alias_dict
 
     @property
+    def subcommands(self):
+        return self._subcommands.copy()  # avoid rewriting
+
+    @property
     def __name__(self):
         return self.name
 
@@ -101,13 +103,14 @@ class tcve_base:
         if not self._typer and self.method:
             self._typer = typer.Typer(invoke_without_command=True)
             self._typer.command()(self.method)
-            into_typer.add_typer(self._typer, invoke_without_command=True)
-        
+            into_typer.add_typer(
+                self._typer, name=self.name, invoke_without_command=True
+            )
+
     def __call__(self, callable: Callable[..., Any], *args: Any) -> Any:
-        if not self._callable and context.typer:
+        if not self._callable and context.cli:
             self._callable = callable
-            self._register(context.typer)
-            self.on("ready", *args) # execute everything on the ready stack event
+            self._register(context.cli)
         return self
 
     def on(self, event: CVEEvents, *args: Any):
@@ -123,7 +126,12 @@ class tcve_base:
         if events is None:
             raise ValueError(_("Given event name doesn't exist"))
         events.append(callback)
-    
+
+    def add_subcommand(self, name: str, node: typer.Typer):
+        self._subcommands[name] = node
+
+    def subcommand(self, name: str) -> Optional[typer.Typer]:
+        return self._subcommands.get(name, None)
 
 
 class tcve_command(tcve_base):
@@ -137,54 +145,59 @@ class tcve_exploit(tcve_base):
 
     _exploits: dict[str, Self] = {}
     _exploit_command: Optional[tcve_command] = None
-        
+
+    def _register(self, into_typer: typer.Typer):
+        if not self._typer and self.method:
+            into_typer.command(name=self.name)(self.method)
+
     def __call__(self, callable: Callable[..., Any], *args: Any, **kwds: Any) -> Any:
-        if self._callable is None and self._exploit_command and self._exploit_command.cli:
+        if (
+            self._callable is None
+            and self._exploit_command
+            and self._exploit_command.cli
+        ):
             self._callable = callable
-            self._register(self._exploit_command.cli)
-            self.on("ready") # execute everything on the ready stack event
+            run_cli = self._exploit_command.subcommand("run")
+            if run_cli:
+                self._register(run_cli)
+            else:
+                pass  # TODO at least a warning
         return self
 
     @classmethod
     def set_exploit_command(cls, command: tcve_command):
         cls._exploit_command = command
 
-    @classmethod
-    def add(cls, name: str):
-        registered = tcve_exploit._exploits.get(name, None)
-        if registered:
-            return registered
-        else:
-            tcve_exploit._exploits[name] = super().__new__(cls)
-            return tcve_exploit._exploits[name]
-
-    # @override
-    # @classmethod
-    # def run(cls, name: str, args: list[str]):
-    #     exploit = tcve_exploit._exploits.get(name, None)
-    #     if not exploit:
-    #         raise ForgeException(_("Exploit not found"), code=HTTPStatus.NOT_FOUND)
-    #     return exploit.run(args)
-
     def __new__(cls, *args: Any, **kwargs: Any):
         name: Optional[str] = kwargs.get("name")
         if not name:
             raise ValueError(_("A name must be given"))
-        return cls.add(name)
+
+        registered = tcve_exploit._exploits.get(name, None)
+        if registered:
+            return registered
+        else:
+            new = super().__new__(cls)
+            new.__init__(*args, **kwargs)
+            tcve_exploit._exploits[name] = new
+            if cls._exploit_command and cls._exploit_command.cli and new.method:
+                cls._exploit_command.cli.command()(new.method)
+            return tcve_exploit._exploits[name]
+
 
 class tcve_option(tcve_base):
     """
     Handles subparsers for exploits and commands
     """
+
     def __init__(self, command: tcve_base, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._command = command
-    
-    
+
     def __call__(self, callable: Callable[..., Any], *args: Any, **kwds: Any) -> Any:
         if self._callable is None and self._command.cli:
             self._callable = callable
-            # self._typer = typer.Typer(name=self.name, invoke_without_command=True)
-            self._command.cli.command(name=self.name)(self._callable)
-            # self._command.cli.add_typer(self._typer, invoke_without_command=True)
+            self._typer = typer.Typer(name=self.name, invoke_without_command=True)
+            self._command.cli.add_typer(self._typer, invoke_without_command=True)
+            self._command.add_subcommand(self.name, self._typer)
         return self

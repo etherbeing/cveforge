@@ -26,10 +26,9 @@ logging.debug("Initializing common commands...")
 @tcve_command(
     name="exit",
 )
-def cli_exit(context: Context):
+def cli_exit():
     """Exit the CLI"""
-    if context.live_reload:
-        context.live_reload = False
+    context = Context()
     raise ForgeException(code=context.EC_EXIT)
 
 
@@ -84,7 +83,7 @@ def log(message: str=typer.Argument(), level: Literal["DEBUG", "INFO", "ERROR", 
     context.stdout.print(
         "[green]Printed given data into the configured output file[/green]"
     )
-    context.configure_logging()
+    context.configure_logging(context.log_level)
 
 
 @tcve_command()

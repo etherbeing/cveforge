@@ -10,6 +10,7 @@ import shlex
 import socket
 import subprocess
 from types import ModuleType
+from click import MissingParameter
 from django.utils.timezone import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, List, Optional, Self, Tuple, cast
@@ -25,8 +26,10 @@ from prompt_toolkit.history import FileHistory, DummyHistory
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.mouse_events import MouseEvent
 from prompt_toolkit.styles import Style
-from pygments.lexers.html import HtmlLexer  # type: ignore
+from pygments.lexers.html import HtmlLexer
+import typer  # type: ignore
 from cveforge.core.commands.command_types import TCVECommand
+from cveforge.core.commands.run import tcve_command
 from cveforge.core.context import Context
 from cveforge.core.exceptions.ipc import ForgeException
 from cveforge.utils.graphic import get_banner
@@ -289,7 +292,6 @@ def main(context: Context, modules: dict[str, ModuleType]) -> None:
     context.stdout.print(
         "\n\n 🔓 🦖 💻 Welcome to [green]CVE Forge[/green], type 'exit' to quit. 🚀 🫡 🪖\n"
     )
-
     while True:
         try:
             session.default_buffer.history = default_session_history
@@ -350,6 +352,9 @@ def main(context: Context, modules: dict[str, ModuleType]) -> None:
                 continue
             else:
                 raise exc
+        except MissingParameter as exc:
+            context.stderr.print(exc.format_message())
+            continue
         except Exception:
             context.stderr.print_exception()
             continue
