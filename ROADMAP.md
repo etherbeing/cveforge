@@ -1,0 +1,20 @@
+- [ ] Integrating with virus total for blue team feature
+- [ ] Implementing tor proxy feature for privacy and proof of concept of Open Relay CWE.
+- [ ] Implementing Gmail integration for PoC of Open Relay CWE and who knows what else
+- [ ] Implementing Censys Lateral enumeration
+- [ ] Implementing DNS stepping vulnerability for SSRF attacks (Sorry for the naming)
+- [ ] Parse `exploit search <query>` to actually populate our local databases
+- [ ] Set up the playgrounds so they can be installed with Vagrant easily and effectively
+- [ ] Try ot gamify a little the CTFs and vulnerable machines for newcomers
+- [ ] Dynamically allows the installation and usage of python tools on the Forge
+- [ ] Adapt as many as possible CVE to the Forge
+    - [ ] Adapt december 2025 exploits
+    - [ ] Adapt november 2025 exploits
+    - [ ] ...
+- [ ] Integrate the Forge with Redis for caching and speeding up DB access
+- [ ] Create units testings for each command and expand the scaffolding to include unit testings
+- [ ] If unit testings are found only include commands and exploits that pass their unit testings
+- [ ] Implementing ZAP Proxy integrability
+- [ ] Implementing NMap integrability
+- [ ] Improve the session behavior so is easier to have multiple sessions and change from each one
+- [ ] Using the completer along with the command create a feedback event that allows the completer to determine which kind of info display the user (perhaps using the typer autocomplete feature which should be installed at startup)

@@ -34,7 +34,7 @@ class Server:
         ready_callable=...,
         server_name=...,
     ) -> None: ...
-    def run(self):  # -> None:
+    def run(self) -> None:  # -> None:
         ...
     def listen_success(self, port):  # -> None:
         """

@@ -1,6 +1,23 @@
-# CVE Forge: The framework for exploits
+# CVE Forge: A Unified, Actionable Penetration Testing Framework
 
-The goal of this project is to make CVE development fast and easy by providing a framework that allows quick exploit development.
+CVE Forge is a framework inspired by [metasploit](https://github.com/rapid7/metasploit-framework) aiming to focus on real life scenarios and help pentesters all around the world to be able to find peace by providing them all the tools anyone really needs, the Forge is not about working with outdated vulnerabilities that we know won't work, but rather the Forge focuses on actionable vulnerabilities and establishes a standardized methodology for responsible vulnerability disclosure and exploit development within a framework.
+
+## Why this matter?
+When starting my career as a pentester and bug hunter I had found that we need a lot of tools, for recoignance, osint, enumeration, exploitation and much more, but what is actually hilarious is the fact that Kali linux or Black Arch does have a lot of tools but no tool that present them all together. Hopefully and perhaps like a dream someday the Kali and BlackArch team will include this inside their built-in tools, but still the goal of this tools is more than engineering all pentesting tools together but actually leveraging the speed for which a pentester developes a ZDE and make a report out of it.
+
+## Code of conduct
+Even though the actual extended code of conduct is in [here](./CODE_OF_CONDUCT.md) is important to understand the next lines described below very clear.
+* 1st. The Software Developer and contributors of this framework do not make themselves responsible for any wrongdoing resulting on the use of the provided framework.
+* 2nd. **Zero-Day Policy**: Do not submit Zero-Day Exploits (ZDEs) as Pull Requests (PRs). Responsible disclosure to the vendor must be completed before any related exploit code can be considered for inclusion. Use the framework's local testing features for development purposes only.
+* 3rd. **ANY** pentesting activity and exploitation of **ANY** vulnerability on unauthorized area is considered to be **ILLEGAL** and can be subjected to legal actions against yourself, avoid taking unnecessary risks, for that purpose we provide playgrounds and for real life jobs you can find in the Forge website references to bounty programs like HackerOne, Google or Meta bounty programs.
+
+## Install
+```sh
+pip install cveforge
+cveforge --help
+cveforge echo hello there
+cveforge # to run interactively
+```
 
 ## Quickstart
 
@@ -29,36 +46,23 @@ except for speed AFAIC.
 
 Once you do the quickstart step for developing a command you'd have two pieces of structures a ForgeParser and a decorated function.
 
-### The ForgeParser
-The parser is the part of the code that parse the user input and turn it into your function requirements or what is the same the part that turns commands flags
-into function keywords arguments.
-
-```py
-from cveforge import ForgeParser
-
-class YourParser(ForgeParser):
-    def setUp(self): # Here you may setup your command metadata as its name and arguments
-        self.add_argument("--my-flag")
-```
-
 ### The command entrypoint
 ```py
 from cveforge import tcve_command
 from cveforge import Context
-from .parser import YourParser
+import typer
 import logging
 
 
-@tcve_command("your_command_name", parser=YourParser)
-def your_parser(context: Context, my_flag: str):
+@tcve_command()
+def your_command_name(my_flag: str = typer.Argument()): # WE NOW SUPPORT TYPER!!!
+    context: Context = Context() # store general program data
     logging.info("Running your command with flag '%s'", my_flag)
 ```
 
-You may never add defaults on your function definition and rather use the parser defined default when adding your argument.
-
 ### Usage:
 ```sh
-your_command_name --my-flag "CVE Forge is amazing!!!" # output: info: Running your command with flag 'CVE Forge is amazing!!!'
+your_command_name "CVE Forge is amazing!!!" # output: info: Running your command with flag 'CVE Forge is amazing!!!'
 ```
 
 ## Developing an Exploit or PoC for CVEs
@@ -68,14 +72,11 @@ Developing an exploit is just like creating a command but rather than using the 
 ```py
 from cveforge import tcve_exploit
 
-@tcve_exploit("cve_2025_0001", categories=["cve", "privilege escalation"])
-def main(context: Context, **kwargs):
+@tcve_exploit(categories=["cve", "privilege escalation"])
+def exploit_name(**kwargs):
     pass
 ```
 Note the categories is also a possible command for the @tcve_command decorator, is useful for allowing the user to search with different queries for your command
-
-## TODO
-1. Using the completer along with the command create a feedback event that allows the completer to determine which kind of info display the user
 
 ## FIXME: Known Bugs
 1. Cannot open two instances at the same time, even if not intended a more user friendly behavior should be implemented

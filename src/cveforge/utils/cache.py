@@ -1,8 +1,11 @@
-from typing import Any
+from typing import Any, Callable, Optional
 
 
-class tcve_cache:
+class tcve_cache: # TODO Nothing is implemented yet
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        pass
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
-        pass
+        self._callable: Optional[Callable[..., Any]] = None
+        
+    def __call__(self, callable: Callable[..., Any], *args: Any, **kwds: Any) -> Any:
+        if not self._callable:
+            self._callable = callable
+        return callable

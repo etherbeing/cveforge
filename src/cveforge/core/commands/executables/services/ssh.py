@@ -1,49 +1,43 @@
 from typing import Optional
-
+import paramiko
 import typer
 from cveforge.core.commands.run import tcve_command
 from cveforge.core.context import Context
 from gettext import gettext as _
 
+
 @tcve_command()
 def ssh(
-    context: Context,
-    uri: Optional[str] = typer.Argument(),
+    uri: str = typer.Argument(default="localhost"),
     hostname: Optional[str] = typer.Option(default="localhost"),
-    port: Optional[int] = typer.Option(default=22),
-    username: Optional[str] = typer.Option(default="root"),
-    password: Optional[str] = typer.Option(),
-    command: Optional[str] = typer.Option(),
+    port: int = typer.Option(22, "--port", "-p"),
+    command: Optional[str] = typer.Option(default=None),
     buffer: int = typer.Option(default=1024),
+    use_password: bool = typer.Option(False, "-W"),
+    identity_file: Optional[str] = typer.Option(None, "--identity", "-i"),
 ):
-    import paramiko
-
+    context = Context()
     client = paramiko.SSHClient()
-    if not uri:
-        if not hostname or not username:
-            raise AttributeError(
-                _(
-                    "Missing required params either use an URI or set hostname, username and password"
-                )
-            )
+    parts = uri.split("@")
+    if len(parts) > 1:
+        username = parts.pop(0)
     else:
-        parts = uri.split("@")
-        credentials = parts.pop(0).split(":")
-        address = parts.pop(0).split(":")
-        username = credentials.pop(0) or username
-        password = credentials.pop(0) or password
-        hostname = address.pop(0) or hostname
-        port = int(address.pop(0) or port)
-        if not hostname:
-            raise AttributeError(_("Missing hostname"))
-        if not port:
-            raise AttributeError(_("Missing port"))
-        if not username:
-            raise AttributeError(_("Missing username"))
-
+        username = "root"
+    hostname = parts.pop(0)
+    if use_password:
+        password = context.console_session.prompt(_("Please enter your password: "), is_password=True)
+    else:
+        password = None
     # trunk-ignore(bandit/B507)
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(hostname=hostname, port=port, username=username, password=password)
+    
+    try:
+        client.connect(hostname=hostname, port=port, username=username, password=password)
+    except paramiko.PasswordRequiredException:
+        passphrase = context.console_session.prompt(_("Please enter the password to unlock your private key: "), is_password=True)
+        client.connect(hostname=hostname, port=port, username=username, passphrase=passphrase)
+    client.exec_command("id")
+
     ssh_transport = client.get_transport()
     if not ssh_transport:
         raise ValueError(

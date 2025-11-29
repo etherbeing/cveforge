@@ -190,14 +190,18 @@ class tcve_option(tcve_base):
     Handles subparsers for exploits and commands
     """
 
-    def __init__(self, command: tcve_base, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, command: tcve_base, is_command: bool=False, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._command = command
+        self._is_command = is_command
 
     def __call__(self, callable: Callable[..., Any], *args: Any, **kwds: Any) -> Any:
         if self._callable is None and self._command.cli:
             self._callable = callable
             self._typer = typer.Typer(name=self.name, invoke_without_command=True)
-            self._command.cli.add_typer(self._typer, invoke_without_command=True)
+            if self._is_command:
+                self._command.cli.command(name=self.name)(callable)
+            else:
+                self._command.cli.add_typer(self._typer, invoke_without_command=True)
             self._command.add_subcommand(self.name, self._typer)
         return self

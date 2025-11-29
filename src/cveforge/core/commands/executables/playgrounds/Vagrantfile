@@ -1,0 +1,39 @@
+# Generated Vagrantfile
+Vagrant.configure("2") do |config|
+  config.vm.box = "{box}"
+  config.vm.hostname = "{name}"
+  config.vm.network "private_network", ip: "192.168.56.{ip_last}"
+  config.vm.synced_folder ".", "/vagrant", type: "virtualbox"
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = 2048
+    vb.cpus = 2
+  end
+
+  # Shell provisioner: try setup scripts or docker-compose
+  config.vm.provision "shell", inline: <<-SHELL
+    set -eux
+    sudo apt-get update -y
+    sudo apt-get install -y curl git build-essential
+    # Install docker if docker-compose.yml exists
+    if [ -f /vagrant/{lab_relative}/docker-compose.yml ]; then
+      curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh
+      sudo usermod -aG docker vagrant || true
+      # docker-compose plugin (modern)
+      sudo apt-get install -y docker-compose-plugin || true
+      cd /vagrant/{lab_relative}
+      # best-effort: try docker compose up
+      if command -v docker >/dev/null 2>&1; then
+        sudo /usr/bin/docker compose up -d || sudo docker compose up -d || true
+      fi
+    fi
+
+    # Run setup or install script if present
+    if [ -x /vagrant/{lab_relative}/setup.sh ]; then
+      cd /vagrant/{lab_relative} && sudo /vagrant/{lab_relative}/setup.sh || true
+    elif [ -x /vagrant/{lab_relative}/install.sh ]; then
+      cd /vagrant/{lab_relative} && sudo /vagrant/{lab_relative}/install.sh || true
+    else
+      echo "No setup/install script found in /vagrant/{lab_relative}. You may need to provision manually."
+    fi
+  SHELL
+end

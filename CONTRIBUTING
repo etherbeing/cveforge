@@ -1,0 +1,70 @@
+# 🤝 CONTRIBUTING.md
+
+## Welcome to CVE Forge\!
+
+We appreciate your interest in contributing to the **CVE Forge** project. By participating in this project, you agree to abide by our [Code of Conduct](https://www.google.com/search?q=./CODE_OF_CONDUCT.md).
+
+-----
+
+## 🚀 How Can I Contribute?
+
+There are many ways to contribute, not just by writing code:
+
+### 1\. 🐛 Reporting Bugs
+
+  * Ensure the bug hasn't already been reported by searching [existing issues](https://www.google.com/search?q=https://github.com/your-username/cve-forge/issues).
+  * Open a new issue and use the **"Bug Report"** template.
+  * Clearly describe the issue, including steps to reproduce the behavior, the expected outcome, and the actual outcome.
+  * Include your operating system and the version of CVE Forge you are using.
+
+### 2\. 💡 Suggesting Enhancements
+
+  * Check [existing issues](https://www.google.com/search?q=https://github.com/your-username/cve-forge/issues) to see if the feature has already been suggested.
+  * Open a new issue and use the **"Feature Request"** template.
+  * Explain the problem your suggestion solves and how it fits into the overall goal of CVE Forge.
+
+### 3\. 📝 Documentation
+
+  * If you find typos, outdated information, or confusing sections in the documentation or README, feel free to open a PR to correct them.
+
+### 4\. 👨‍💻 Code Contributions (Pull Requests)
+
+#### A. Getting Started
+
+1.  **Fork** the repository on GitHub.
+2.  **Clone** your fork locally: `git clone https://github.com/your-username/cve-forge.git`
+3.  **Create a new branch** for your feature or fix: `git checkout -b feature/my-awesome-feature`
+4.  Make your changes, ensuring you follow the **Development Guidelines** below.
+5.  **Commit** your changes using descriptive commit messages (see point B).
+6.  **Push** your changes to your fork: `git push origin feature/my-awesome-feature`
+7.  **Open a Pull Request (PR)** against the `main` branch of the original `cve-forge` repository.
+
+#### B. Commit Message Guidelines
+
+We use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). This helps us generate better release notes.
+
+| Type | Description | Example |
+| :--- | :--- | :--- |
+| `feat` | A new feature | `feat: add category filter for exploits` |
+| `fix` | A bug fix | `fix: command parser now handles spaces correctly` |
+| `docs` | Documentation only changes | `docs: update quickstart guide for uv` |
+| `refactor` | Code change that neither fixes a bug nor adds a feature | `refactor: simplify exploit loading logic` |
+| `test` | Adding missing tests or correcting existing tests | `test: add unit tests for ForgeParser` |
+
+#### C. Development Guidelines
+
+  * **Testing:** New features and bug fixes must include corresponding tests (unit or integration) where appropriate.
+  * **Code Style:** We primarily adhere to **PEP 8**. Please use a linter (like `flake8` or `ruff`) and an auto-formatter (like `black`) before submitting your PR.
+  * **Type Hinting:** Use Python's type hinting generously to improve code clarity and maintainability.
+  * **Security:** Due to the nature of this project, all contributions are subject to a **rigorous security review**.
+
+-----
+
+## 🛡️ Zero-Day and Exploit Policy (Crucial)
+
+As stated in the README, **CVE Forge is a framework for responsible disclosure and authorized testing.**
+
+1.  **NO Zero-Day Exploits (ZDEs) are to be submitted as PRs.**
+2.  Exploit contributions for **publicly known, patched vulnerabilities (CVEs)** must clearly reference the CVE ID and the affected product version.
+3.  The exploit must be demonstrated against a **safe, isolated environment (e.g., a local Docker container or test server)**.
+4.  Any contribution that appears to be malicious or targets live, unauthorized systems will be immediately rejected and reported.
