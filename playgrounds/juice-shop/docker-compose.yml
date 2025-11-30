@@ -1,0 +1,13 @@
+version: '3.7'
+services:
+  juiceShop:
+    image: bkimminich/juice-shop
+    ports:
+      - 127.0.0.1:3000:3000
+    volumes:
+      - data:/juice-shop/data/:rw
+      - config:/juice-shop/config/:ro
+  
+volumes:
+  data:
+  config:
