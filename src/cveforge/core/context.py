@@ -12,8 +12,8 @@ from functools import lru_cache
 from logging import basicConfig
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Literal, Optional, Self, TypedDict
-
+from typing import Any, Optional, Self, TypedDict
+from .sessions import CVESession
 import typer
 
 
@@ -25,64 +25,6 @@ from prompt_toolkit import PromptSession
 
 from cveforge.utils.module import load_module_from_path
 from rich.console import Console
-
-
-class CVESession:
-    """
-    If we should proxify(send requests through an specific place) any request so when we have an opened session commands go to the target session instead this is is the middleware for that
-    """
-
-    @property
-    def protocol(self):
-        return self._protocol
-
-    def __init__(
-        self,
-        context: "Context",
-        protocol: Literal["ssh", "sftp", "local"],
-        session_object: Any = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        hostname: Optional[str] = None,
-        port: Optional[int] = None,
-        path: Optional[str] = None,
-    ) -> None:
-        self._context = context
-        self._protocol = protocol
-        self._session_object = session_object
-        self._username = username
-        self._password = password
-        self._hostname = hostname
-        self._port = port
-        self._path = path
-
-    def __str__(self) -> str:
-        formatted_text = ""
-        formatted_text += self._protocol + "://"
-        if self._username:
-            formatted_text += self._username
-            if self._password:
-                formatted_text += ":" + "*" * 8
-        if self._hostname:
-            if self._username:
-                formatted_text += "@"
-            formatted_text += self._hostname
-            if self._port:
-                formatted_text += ":" + str(self._port)
-        if self._path:
-            formatted_text += self._path
-        return formatted_text
-
-    def run(self, command: TCVECommand, *args: Any, **kwargs: Any):
-        return command.get("command").run(self._context, *args, **kwargs)
-
-    def get_session_object(self):
-        return self._session_object
-
-    def __bool__(
-        self,
-    ):
-        return self._protocol != "local"
 
 
 class CommandContext(TypedDict):
@@ -166,6 +108,7 @@ class Context:
     WEB_DIR = BASE_DIR / "web"
     COMMANDS_DIR = BASE_DIR / "core/commands/executables"
     PAYLOAD_DIR = BASE_DIR / "payloads"
+    PAYLOAD_DIR_SRC = PAYLOAD_DIR / "src"
     LOG_FILE: Path = (
         BASE_DIR / ".cve.{host_id}.log"
     )  # DeprecationWarning: Use context.log_file instead
@@ -174,12 +117,12 @@ class Context:
     MEDIA_DIR = Path("/var/www/html/cveforge/media/")
     TEXT_ART_DIR = ASSETS_DIR / "text_art"
     DEFAULT_CVE_CONFIG_PATH = BASE_DIR / ".cveforge.toml"
-    
+
     # Exception Codes, useful for tree level deep communication
     EC_RELOAD = 3000
     EC_EXIT = 3001
     EC_CONTINUE = 3002
-    
+
     # Return codes, useful for arbitrary exits from the program
     RT_OK = 0
     RT_INVALID_COMMAND = 4000
@@ -208,8 +151,26 @@ class Context:
     stdin: Console = Console()
     stderr: Console = Console()
 
+    def push_session(self, session: CVESession): # alias
+        return self.set_current_session(session)
+    
+    def pop_session(self) -> Optional[CVESession]:
+        if len(self.cve_sessions) > 1:
+            return self.cve_sessions.pop()
+        else:
+            return self.cve_sessions[-1]
+    
+    def set_current_session(self, cve_session: CVESession):
+        if self.cve_sessions[-1] == cve_session: # is already the current session
+            return
+        for i, session in enumerate(self.cve_sessions):
+            if session == cve_session:
+               self.cve_sessions.pop(i)
+               break 
+        self.cve_sessions.append(cve_session)
+
     def set_web_address(self, value: str):
-        self._web_address = value # TODO check is valid
+        self._web_address = value  # TODO check is valid
 
     @property
     def web_address(self):
@@ -241,7 +202,7 @@ class Context:
     # cli: PromptSession[str] # Command Line
     # For shared context that needs to be transmitted through multiple commands,
     # (e.g. between network usage)
-    network_session: Optional[CVESession] = None
+    cve_sessions: list[CVESession] = [CVESession("local")]
 
     # trunk-ignore(ruff/B019)
     @lru_cache()
@@ -302,7 +263,7 @@ class Context:
                         if name.startswith("_"):
                             continue
                         elif isinstance(element, tcve_command):
-                            element.on("ready") # do it here so to avoid 
+                            element.on("ready")  # do it here so to avoid
                             commands[element.name] = {
                                 "name": element.name,
                                 "command": element,

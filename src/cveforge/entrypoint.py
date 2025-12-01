@@ -27,9 +27,7 @@ from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.mouse_events import MouseEvent
 from prompt_toolkit.styles import Style
 from pygments.lexers.html import HtmlLexer
-import typer  # type: ignore
 from cveforge.core.commands.command_types import TCVECommand
-from cveforge.core.commands.run import tcve_command
 from cveforge.core.context import Context
 from cveforge.core.exceptions.ipc import ForgeException
 from cveforge.utils.graphic import get_banner
@@ -206,8 +204,8 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
         ),
         ("class:title", f"Web UI: http://{context.web_address}"),
         (
-            "class:colon",
-            f" << {context.network_session} >>" if context.network_session else "",
+            "class:session",
+            f" [ {context.cve_sessions[-1]} ]" if context.cve_sessions[-1] else "",
         ),
         ("class:colon", " ]"),
         (
@@ -221,8 +219,8 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
         ),
         ("class:colon", " ]"),
         (
-            "class:host",
-            f"""{f" Proxy: << {context.proxy_client} >>" if context.proxy_client else ""}""",
+            "class:session",
+            f"""{f" Proxy: $ {context.proxy_client} " if context.proxy_client else ""}""",
         ),
         (
             "class:colon",
@@ -260,6 +258,7 @@ def main(context: Context, modules: dict[str, ModuleType]) -> None:
             "path": "ansicyan underline",
             "white": "white",
             "title": "white",
+            "session": "#D4AF37"
         }
     )
 
@@ -286,7 +285,8 @@ def main(context: Context, modules: dict[str, ModuleType]) -> None:
         new_line_start=True,
         justify="center",
         no_wrap=True,
-        width=context.stdout.width,
+        # fullscreen
+        # width=
     )
 
     context.stdout.print(

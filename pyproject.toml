@@ -1,6 +1,6 @@
 [project]
 name = "cveforge"
-version = "0.1.0"
+version = "0.1.1"
 description = "Framework that aim to enhance the developer experience for CVEs, malware, scans and reports. Aimed to Red and Blue cybersecurity teams."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -31,7 +31,7 @@ dependencies = [
 ]
 
 [tool.setuptools]
-package-data = {"cveforge" = [".cveforge.toml", ".cveignore", ".cveschema.json", "assets/**"]}
+package-data = {"cveforge" = [".cveforge.toml", ".cveignore", "assets/**"]}
 include-package-data = true
 
 [tool.setuptools.packages.find]

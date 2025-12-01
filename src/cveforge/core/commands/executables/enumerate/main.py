@@ -35,9 +35,7 @@ def enumerate():
 @tcve_option(enumerate)
 def ssh():
     context: Context = Context()
-    if context.network_session is None:
-        raise Exception(_("Unexpected error, no network session found when it should at the very least have the local session on"))
-    session = context.network_session.get_session_object()
+    session = context.cve_sessions[-1].get_session_object()
     if session:
         if isinstance(session, paramiko.SSHClient):
             # trunk-ignore(bandit/B601)
