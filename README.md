@@ -1,5 +1,7 @@
 # CVE Forge: A Unified, Actionable Penetration Testing Framework
 
+[![Build and Deploy to PyPI](https://github.com/etherbeing/cveforge/actions/workflows/build.yml/badge.svg)](https://github.com/etherbeing/cveforge/actions/workflows/build.yml)
+
 CVE Forge is a framework inspired by [metasploit](https://github.com/rapid7/metasploit-framework) aiming to focus on real life scenarios and help pentesters all around the world to be able to find peace by providing them all the tools anyone really needs, the Forge is not about working with outdated vulnerabilities that we know won't work, but rather the Forge focuses on actionable vulnerabilities and establishes a standardized methodology for responsible vulnerability disclosure and exploit development within a framework.
 
 ## Why this matter?
