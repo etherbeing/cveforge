@@ -1,32 +1,31 @@
 name: Build and Deploy to PyPI
 
 on:
-    push:
-        tags:
-            - 'v*'
+  push:
+    tags:
+      - "v*"
 
 jobs:
-    build-and-deploy:
-        runs-on: ubuntu-latest
-        
-        permissions:
-            contents: read
-        
-        steps:
-            - uses: actions/checkout@v4
-            
-            - name: Set up Python
-                uses: actions/setup-python@v4
-                with:
-                    python-version: '3.11'
-            
-            - name: Install uv
-                run: pip install uv
-            
-            - name: Build package with uv
-                run: uv build
-            
-            - name: Publish to PyPI
-                uses: pypa/gh-action-pypi-publish@release/v1
-                with:
-                    password: ${{ secrets.PYPI_API_TOKEN }}
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Build package with uv
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
