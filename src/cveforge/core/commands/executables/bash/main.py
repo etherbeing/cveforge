@@ -11,7 +11,7 @@ from cveforge.core.context import Context
 
 
 @tcve_command(
-    aliases=["echo", "curl", "clear", "pwd", "ss", "watch", "ping", "ls", "cd", "cat", "tail", "head", "grep"],
+    aliases=["echo", "curl", "clear", "pwd", "ss", "watch", "ping", "ls", "cd", "cat", "tail", "head", "grep", "git"],
 )
 def bash(params: Annotated[Optional[list[str]], typer.Argument()] = None):
     """

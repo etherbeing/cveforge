@@ -9,6 +9,7 @@ import typer
 from urllib3.util import parse_url
 from cveforge import tcve_command, tcve_option, Context
 from cveforge.core.commands.executables.owasp.injections.xml import XMLSession
+from cveforge.core.commands.executables.owasp.utils import get_cookies, get_headers
 
 
 @tcve_command(categories=["cwe-91", "cwe-611", "cwe-776", "cwe-643"])
@@ -58,7 +59,7 @@ def xml(
     file_name: str = typer.Option(default="file"),
     proxy: Optional[str] = typer.Option(default=None),
     path: Optional[str] = typer.Argument(default=None),
-    verbose: bool = typer.Option(default=False)
+    verbose: bool = typer.Option(default=False),
 ):
     """
     Perform XML Injection on a given endpoint
@@ -75,16 +76,9 @@ def xml(
     context = Context()
     url = parse_url(target)
     # Placeholder for actual XML injection logic
-    r_headers: dict[str, str] = {}
-    if headers:
-        for header in headers:
-            key, value = header.split(":", 1)
-            r_headers[key.strip()] = value.strip()
-    r_cookies: dict[str, str] = {}
-    if cookies:
-        r_cookies = dict(
-            [cookie.strip().split("=", 1) for cookie in cookies.split(";")]
-        )
+    r_headers: dict[str, str] = get_headers(headers)
+
+    r_cookies: dict[str, str] = get_cookies(cookies)
     if url.host:
         r_headers["Origin"] = url.host
         r_headers["Referer"] = target
