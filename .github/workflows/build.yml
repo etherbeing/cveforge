@@ -1,14 +1,14 @@
 name: Build and Deploy to PyPI
 
 on:
-  push:
-    tags:
-      - "v*"
-
+    push:
+        branches:
+            - main
+        tags:
+            - v*
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
 
