@@ -19,14 +19,11 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install uv
-        run: pip install uv
-
-      - name: Build package with uv
-        run: uv build
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        continue-on-error: true
+      # - name: Install uv
+      #   run: pip install uv
+      - name: Build and Publish to PyPI
+        uses: python-semantic-release/publish-action@v9 #pypa/gh-action-pypi-publish@release/v1
+        # continue-on-error: true
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        #   password: ${{ secrets.PYPI_API_TOKEN }}

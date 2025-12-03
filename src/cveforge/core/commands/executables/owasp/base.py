@@ -12,6 +12,7 @@ from cveforge.core.commands.executables.owasp.utils import (
     get_headers,
 )
 from cveforge.core.commands.run import tcve_command
+from cveforge.utils.format import cve_format
 
 
 @tcve_command()
@@ -44,7 +45,7 @@ def http(
 ):
     response = requests.request(
         method,
-        target,
+        cve_format(target),
         headers=get_headers(headers),
         cookies=get_cookies(cookies),
         files=get_files(files),

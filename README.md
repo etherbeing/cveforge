@@ -79,6 +79,3 @@ def exploit_name(**kwargs):
     pass
 ```
 Note the categories is also a possible command for the @tcve_command decorator, is useful for allowing the user to search with different queries for your command
-
-## FIXME: Known Bugs
-1. Cannot open two instances at the same time, even if not intended a more user friendly behavior should be implemented

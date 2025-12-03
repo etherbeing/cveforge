@@ -2,7 +2,13 @@
 Strongly inspired by Metasploit but with a different target in mind, used to overcome difficulties
 with existent tools and cheap connections like those given by the country where I reside.
 """
-from cveforge.core.commands.run import tcve_command as tcve_command # type: ignore
-from cveforge.core.commands.run import tcve_exploit as tcve_exploit # type: ignore
-from cveforge.core.commands.run import tcve_option as tcve_option # type: ignore
-from cveforge.core.context import Context as Context # type: ignore
+
+from importlib.metadata import version as get_version
+from cveforge.core.commands.run import tcve_command as tcve_command  # type: ignore
+from cveforge.core.commands.run import tcve_exploit as tcve_exploit  # type: ignore
+from cveforge.core.commands.run import tcve_option as tcve_option  # type: ignore
+from cveforge.core.context import Context as Context  # type: ignore
+
+if __package__ is None:
+    __package__ = "cveforge"
+__version__ = get_version(__package__)
