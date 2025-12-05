@@ -1,10 +1,10 @@
+import asyncio
 import hashlib
 import json
 import logging
 from functools import lru_cache
 from pathlib import Path
-from threading import Thread
-
+from django.utils.translation import gettext as _
 import pathspec
 from pathspec.patterns.gitwildmatch import GitWildMatchPattern
 from watchdog.events import (
@@ -39,6 +39,11 @@ class Watcher(FileSystemEventHandler):
         self.context = context
         self.pathspec = self.parse_gitignore()
         self.generate_folder_schema()
+        tasks = asyncio.tasks.all_tasks(self.context.event_loop)
+        for task in tasks:
+            if task.get_name() == self.context.ELT_CUI:
+                self._elt_cui = task
+                break
 
     def get_file_integrity(self, file_path: Path):
         """
@@ -131,10 +136,12 @@ class Watcher(FileSystemEventHandler):
         path = path.relative_to(self.context.BASE_DIR)
         return self.pathspec.match_file(path)
 
-    def do_reload(self, event: FileSystemEvent, child: Thread):
+    def live_reload(
+        self, event: FileSystemEvent
+    ):
         """Trigger the reload"""
         trigger_path = Path(str(event.src_path))
-        if not child or event.is_directory or self.is_path_ignored(trigger_path):
+        if event.is_directory or self.is_path_ignored(trigger_path):
             return
         previous_id = (
             self.get_schema()
@@ -155,12 +162,7 @@ class Watcher(FileSystemEventHandler):
         app = get_app_or_none()
         if app:
             app.exit(exception=ForgeException(code=self.context.EC_RELOAD))
-        child.join()
-
-    def live_reload(self, event: FileSystemEvent):
-        """
-        Holder to make a bridge to actually reload substitute this file with do_reload and lambda
-        """
+        self._elt_cui.cancel(_("Reloading CUI due to a file change"))
 
     def on_modified(self, event: FileSystemEvent):
         if type(event) is FileModifiedEvent:

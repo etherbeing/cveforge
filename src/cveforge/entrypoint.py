@@ -2,6 +2,7 @@
 Entrypoint of the software handle run logic and call the needed modules from here
 """
 
+# import asyncio
 import difflib
 import getpass
 import os
@@ -30,6 +31,7 @@ from pygments.lexers.html import HtmlLexer
 from cveforge.core.commands.command_types import TCVECommand
 from cveforge.core.context import Context
 from cveforge.core.exceptions.ipc import ForgeException
+from cveforge.utils.format import cve_format
 from cveforge.utils.graphic import get_banner
 
 
@@ -231,7 +233,7 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
     ]
 
 
-def main(context: Context, modules: dict[str, ModuleType]) -> None:
+async def main(context: Context, modules: dict[str, ModuleType]) -> None:
     """
     Handle prompt and CLI as well as other program executable behavior.
     """
@@ -258,7 +260,7 @@ def main(context: Context, modules: dict[str, ModuleType]) -> None:
             "path": "ansicyan underline",
             "white": "white",
             "title": "white",
-            "session": "#D4AF37"
+            "session": "#D4AF37",
         }
     )
 
@@ -295,54 +297,65 @@ def main(context: Context, modules: dict[str, ModuleType]) -> None:
     while True:
         try:
             session.default_buffer.history = default_session_history
-            command: str = session.prompt(
+            command: Optional[str] = session.prompt(
                 get_current_message,
-                in_thread=False,
+                in_thread=True, # Mandatory as we are already in an event loop
                 refresh_interval=0.25,
                 is_password=False,
             )
             if not command:
                 continue
-            context.stdout.print()  # just a new line after each command
+            # context.stdout.print()  # just a new line after each command
             session.default_buffer.history = DummyHistory()  # This makes the programs to run without history enabled useful for when we are prompting for passwords
 
             command = command.strip()
-            base = shlex.split(command)
-            args = None
-            if len(base) > 1:
-                args = base[1:]
-            base = base[0]
-            cve_command: Optional[TCVECommand] = available_callables.get(
-                base.strip(), None
-            )
-            if not cve_command and base.startswith(
-                context.SYSTEM_COMMAND_TOKEN
-            ):  # defaults to CLI
-                command = command.removeprefix(context.SYSTEM_COMMAND_TOKEN).strip()
-                subprocess.call(
-                    command,
-                    stdin=context.console_session.input.fileno(),
-                    # trunk-ignore(bandit/B602)
-                    shell=True,  # lets remember this is currently a cli program so OS injection is intended :-) (unauthorized NOT)
+            command_syntax = cve_format(command)
+
+            # sem = asyncio.Semaphore(50)
+            # tasks: list[asyncio.Task[Any]] = []
+            async for command in command_syntax:  # run with each variant of the syntax
+                if not command:
+                    break
+                # async def m():
+                #     pass
+                # tasks.append(asyncio.create_task(m))
+                base = shlex.split(command)
+                args = None
+                if len(base) > 1:
+                    args = base[1:]
+                base = base[0]
+                cve_command: Optional[TCVECommand] = available_callables.get(
+                    base.strip(), None
                 )
-            elif cve_command:
-                context.command_context.update({"current_command": cve_command})
-                cve_command.get("command").run(*(args or []))
-            else:
-                closest_matches = difflib.get_close_matches(
-                    base, available_callables.keys(), n=1
-                )
-                if closest_matches:
-                    context.stderr.print(
-                        f"""⚠️ Unknown command given, perhaps you meant [yellow]{
-                            closest_matches[0]
-                        }[/yellow]?
-                    """
+                if not cve_command and base.startswith(
+                    context.SYSTEM_COMMAND_TOKEN
+                ):  # defaults to CLI
+                    command = command.removeprefix(context.SYSTEM_COMMAND_TOKEN).strip()
+                    subprocess.call(
+                        command,
+                        stdin=context.console_session.input.fileno(),
+                        # trunk-ignore(bandit/B602)
+                        shell=True,  # lets remember this is currently a cli program so OS injection is intended :-) (unauthorized NOT)
                     )
+                elif cve_command:
+                    context.command_context.update({"current_command": cve_command})
+                    cve_command.get("command").run(*(args or []))
                 else:
-                    context.stderr.print(
-                        f"❗💥 Unknown command given, use help to know more...\nOptions are:\n  {', '.join(available_callables.keys())}"
+                    closest_matches = difflib.get_close_matches(
+                        base, available_callables.keys(), n=1
                     )
+                    if closest_matches:
+                        context.stderr.print(
+                            f"""⚠️ Unknown command given, perhaps you meant [yellow]{
+                                closest_matches[0]
+                            }[/yellow]?
+                        """
+                        )
+                    else:
+                        context.stderr.print(
+                            f"❗💥 Unknown command given, use help to know more...\nOptions are:\n  {', '.join(available_callables.keys())}"
+                        )
+            # results = await asyncio.gather(*tasks)
         except (KeyboardInterrupt, EOFError):
             context.stderr.print("❗ Use 'exit' to quit.")
         except ForgeException as exc:

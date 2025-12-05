@@ -2,6 +2,7 @@
 Handle global context for the current user, target host, port, arguments passed to the cli etc...
 """
 
+import asyncio
 import getpass
 import logging
 import os
@@ -36,6 +37,7 @@ class Context:
 
     _singleton_instance = None
     _lock: threading.Lock = threading.Lock()
+    _event_loop: Optional[asyncio.AbstractEventLoop] = None
     exit_status: int | None = None
 
     __name__ = "CVE Forge"
@@ -53,8 +55,7 @@ class Context:
         logging.debug(
             "Initializing singleton Context instance, only one in the logs of these message should exist"
         )
-        threading.main_thread().name = "CVE Forge Executor"
-
+        threading.main_thread().name = "CVE Forge"
         self.proxy_client: Optional[Any] = None
         self._cli = typer.Typer()
 
@@ -128,6 +129,8 @@ class Context:
     RT_INVALID_COMMAND = 4000
     RT_ADDRESS_IN_USE = 4001
 
+    ELT_CUI = "CVE Forge: CUI"
+    ELT_PROGRAM = "CVE Forge: Program"
     SYSTEM_COMMAND_TOKEN = "@"
     CVE_IGNORE_PATH = BASE_DIR / ".cveignore"
     SOFTWARE_SCHEMA_PATH = BASE_DIR / ".cveschema.json"
@@ -151,22 +154,22 @@ class Context:
     stdin: Console = Console()
     stderr: Console = Console()
 
-    def push_session(self, session: CVESession): # alias
+    def push_session(self, session: CVESession):  # alias
         return self.set_current_session(session)
-    
+
     def pop_session(self) -> Optional[CVESession]:
         if len(self.cve_sessions) > 1:
             return self.cve_sessions.pop()
         else:
             return self.cve_sessions[-1]
-    
+
     def set_current_session(self, cve_session: CVESession):
-        if self.cve_sessions[-1] == cve_session: # is already the current session
+        if self.cve_sessions[-1] == cve_session:  # is already the current session
             return
         for i, session in enumerate(self.cve_sessions):
             if session == cve_session:
-               self.cve_sessions.pop(i)
-               break 
+                self.cve_sessions.pop(i)
+                break
         self.cve_sessions.append(cve_session)
 
     def set_web_address(self, value: str):
@@ -179,6 +182,13 @@ class Context:
     @property
     def log_level(self):
         return self._log_level
+
+    @property
+    def event_loop(self):
+        return self._event_loop
+
+    def set_event_loop(self, value: asyncio.AbstractEventLoop):
+        self._event_loop = value
 
     @property
     def console_session(self):

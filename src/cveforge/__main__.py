@@ -5,52 +5,66 @@ author: etherbeing
 license: Apache
 """
 
+import asyncio
 import logging
 import pathlib
 import sys
-import threading
-from time import sleep
-from collections.abc import Callable
-from typing import Literal, Optional
-
+from typing import Literal, NoReturn, Optional
+from asgiref.sync import async_to_sync
+from django.utils.translation import gettext as _
 import typer
 
 from cveforge.core.context import Context
-from cveforge.utils.development import FileSystemEvent, Watcher
+from cveforge.utils.development import Watcher
 from cveforge.utils.module import refresh_modules
 
-# trunk-ignore(ruff/F401)
-import cveforge.entrypoint  # type: ignore  # noqa: F401
+from cveforge import entrypoint as entrypoint
 
 
-def live_reload_trap(
-    live_reload_watcher: Watcher, child: threading.Thread
-) -> Callable[..., None]:
-    def _trap(event: FileSystemEvent):
-        return live_reload_watcher.do_reload(event, child)
+async def program(context: Context, live_reload: bool):
+    assert context.event_loop is not None, _(
+        "Main event loop wasn't configured correctly"
+    )
+    context.get_commands.cache_clear()
+    modules = refresh_modules(
+        str(context.BASE_DIR.absolute()),
+        exclude=[context.BASE_DIR / pathlib.Path("core/context.py")],
+    )
 
-    return _trap
+    # Running the main process in a child process to be able to handle live reload and other IPC events
+    watcher: Optional[Watcher] = None
+    while True:
+        try:
+            elt_cui = context.event_loop.create_task(
+                modules["cveforge.entrypoint"].main(context=context, modules=modules),
+                name=context.ELT_CUI,
+            )
+
+            if live_reload and not watcher:
+                watcher = Watcher(context=context)
+                watcher.observer.name = "CVE Forge: File Observer"
+                watcher.start(context.BASE_DIR)
+
+            await elt_cui
+            break
+        except asyncio.CancelledError:
+            continue
 
 
-def main(
-    live_reload: bool = typer.Option(default=False),
-    log_level: Literal["ERROR", "DEBUG", "INFO", "WARNING"] = typer.Option(  # noqa: F821
-        default="INFO",
-    ),
-    http_timeout: int = typer.Option(default=30),
-    web_address: str = typer.Option(default="127.0.0.1:3780"),
-    command: Optional[str] = typer.Argument(
-        help="""
-(Optional) CVE Forge command to run, e.g: \"ip\"; The example before does returns the \
-public ip of the user and exit after that, this suppress the interactive behavior of \
-the CVE Forge software and is mostly useful for when running quick commands.
-            """,
-        default=None,
-    ),
-    # trunk-ignore(ruff/B008)
-    args: Optional[list[str]] = typer.Argument(default=None),
-):
+async def main(
+    live_reload: bool,
+    log_level: Literal["ERROR", "DEBUG", "INFO", "WARNING"],
+    http_timeout: int,
+    web_address: str,
+    command: Optional[str],
+    args: Optional[list[str]],
+) -> NoReturn:
+    event_loop = asyncio.get_running_loop()
     with Context() as context:
+        context.set_event_loop(event_loop)
+        assert context.event_loop is not None, _(
+            "Main event loop wasn't configured correctly"
+        )
         context.set_web_address(web_address)
         context.configure_logging(
             logging.getLevelNamesMapping().get(log_level, logging.INFO)
@@ -77,46 +91,9 @@ the CVE Forge software and is mostly useful for when running quick commands.
                 )
                 exit(context.RT_INVALID_COMMAND)
         else:
-            watcher = None
-            if live_reload:
-                watcher = Watcher(context=context)
-                watcher.observer.name = "CVE Forge File Observer"
-                watcher.start(context.BASE_DIR)
-
-            while True:
-                context.get_commands.cache_clear()
-                modules = refresh_modules(
-                    str(context.BASE_DIR.absolute()),
-                    exclude=[context.BASE_DIR / pathlib.Path("core/context.py")],
-                )
-
-                # Running the main process in a child process to be able to handle live reload and other IPC events
-                worker_thread = threading.Thread(
-                    target=modules["cveforge.entrypoint"].main,
-                    name=context.SOFTWARE_NAME,
-                    daemon=False,
-                    kwargs={"context": context, "modules": modules},
-                )
-                worker_thread.start()
-                if watcher:
-                    watcher.live_reload = live_reload_trap(
-                        live_reload_watcher=watcher, child=worker_thread
-                    )  # type: ignore
-                    worker_thread.join()
-
-                    if context.exit_status == context.EC_EXIT:
-                        break
-                    else:
-                        sleep(1.5)
-                else:
-                    worker_thread.join()
-                    if context.exit_status == context.EC_RELOAD:
-                        sleep(1.5)
-                        continue
-                    break
-
-            if watcher:
-                watcher.stop()
+            await context.event_loop.create_task(
+                program(context, live_reload), name=context.ELT_PROGRAM
+            )
 
             logging.debug("Child exit code, processed successfully exiting now...")
             context.stdout.print(
@@ -125,11 +102,39 @@ the CVE Forge software and is mostly useful for when running quick commands.
             exit(context.RT_OK)
 
 
-def start_app():
+def cve_forge(
+    live_reload: bool = typer.Option(default=False),
+    log_level: Literal["ERROR", "DEBUG", "INFO", "WARNING"] = typer.Option(  # noqa: F821
+        default="INFO",
+    ),
+    http_timeout: int = typer.Option(default=30),
+    web_address: str = typer.Option(default="127.0.0.1:3780"),
+    command: Optional[str] = typer.Argument(
+        help="""
+(Optional) CVE Forge command to run, e.g: \"ip\"; The example before does returns the \
+public ip of the user and exit after that, this suppress the interactive behavior of \
+the CVE Forge software and is mostly useful for when running quick commands.
+            """,
+        default=None,
+    ),
+    # trunk-ignore(ruff/B008)
+    args: Optional[list[str]] = typer.Argument(default=None),
+):
+    return async_to_sync(main, force_new_loop=False)(
+        live_reload=live_reload,
+        log_level=log_level,
+        http_timeout=http_timeout,
+        web_address=web_address,
+        command=command,
+        args=args,
+    )
+
+
+def run():
     app: typer.Typer = typer.Typer(name="cveforge", invoke_without_command=True)
-    app.command()(main)
-    app(prog_name="cveforge", standalone_mode=True, args=sys.argv[1:])
+    app.command()(cve_forge)
+    app(prog_name="cveforge", standalone_mode=False, args=sys.argv[1:])
 
 
 if __name__ == "__main__":
-    start_app()
+    run()

@@ -1,21 +1,13 @@
+from http import HTTPMethod
 import shlex
-from argparse import ArgumentParser
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Literal, Optional
 
-from prompt_toolkit import prompt
 from requests import request
 import typer
 
+from cveforge.core.commands.executables.owasp.utils import get_cookies, get_headers
 from cveforge.core.commands.run import tcve_command
 from cveforge.core.context import Context
-
-
-CurlParser = ArgumentParser(prog="curl")
-CurlParser.add_argument("url")
-CurlParser.add_argument("-H", dest="headers", action="append", required=False)
-CurlParser.add_argument("-b", dest="cookies", required=False)
-CurlParser.add_argument("--insecure", action="store_true")
-CurlParser.add_argument("-X", action="store_true")
 
 
 def dictionary_value(wordlist: str):
@@ -87,11 +79,34 @@ def process_cve_script(script: str, context: dict[str, Any]):
 
 @tcve_command()
 def brute_force(
-    query_param: Annotated[Optional[list[str]], typer.Argument()] = None,  # noqa: F821
-    body_json: Annotated[Optional[list[str]], typer.Option()] = None,
-    body_form: Annotated[Optional[list[str]], typer.Option()] = None,
+    target: str = typer.Argument(),
+    headers: Annotated[Optional[list[str]], typer.Option("-H", "--header")] = None,
+    cookies: Annotated[Optional[str], typer.Option("-b", "--cookies")] = None,
+    files: Annotated[Optional[list[str]], typer.Option("-f", "--file")] = None,
+    method: Annotated[
+        Literal[
+            HTTPMethod.POST,
+            HTTPMethod.PATCH,
+            HTTPMethod.CONNECT,
+            HTTPMethod.DELETE,
+            HTTPMethod.GET,
+            HTTPMethod.TRACE,
+            HTTPMethod.HEAD,
+            HTTPMethod.OPTIONS,
+        ],
+        typer.Option(
+            "-X",
+            "--method",
+        ),
+    ] = HTTPMethod.GET,
+    timeout: float = typer.Option(10, "-t", "--timeout"),
+    allow_redirects: bool = typer.Option(True, "-r", "--allow-redirects"),
+    proxy: Optional[str] = typer.Option(None, "-p", "--proxy"),
+    data: Optional[str] = typer.Option(None, "-d", "--data"),
+    json_data: Optional[str] = typer.Option(None, "-j", "--json"),
+    ssl_verify: bool = typer.Option(False, "-V", "--verify"),
     expects: Optional[str] = typer.Option(),
-    wordlist: str = typer.Option(),
+    wordlist: Optional[str] = typer.Option(),
 ):
     """
     This command turns a curl command into a bruteforceable query, tested against DVWA brute_force
@@ -111,43 +126,27 @@ def brute_force(
         $ brute_force -Q username -Q password --expects "'Username and/or password incorrect.' not in body" -W /usr/share/dict/rockyou.txt 
     """
     context = Context()
-    command = prompt("Enter the CURL command:\n")
-    parts = command.split(" ", 1)
-    assert len(parts) == 2, "Invalid CURL command given"
-    signature, params = parts[0].strip(), parts[1].strip()
-    if signature != "curl":
-        raise ValueError("This doesn't seems like a curl command")
 
-    params = [x for x in shlex.split(command) if x.strip()]
-    curl_parts = CurlParser.parse_args(params[1:])
-
-    headers = dict([header.split(": ", 1) for header in curl_parts.headers])
-    cookies = dict(
-        [cookie.strip().split("=") for cookie in curl_parts.cookies.split(";")]
-    )
-    data: dict[Any, Any] = {}
-    query_params: dict[Any, Any] = {}
-    dict_entry = dictionary_value(wordlist)
+    if wordlist:
+        dict_entry = dictionary_value(wordlist)
+    else:
+        dict_entry = None
     while True:
         res = request(
-            "GET",
-            curl_parts.url,
-            headers=headers,
-            params=query_params,
+            method,
+            target,
+            headers=get_headers(headers),
             data=data,
-            cookies=cookies,
-            verify=not curl_parts.insecure,
+            json=json_data,
+            cookies=get_cookies(cookies),
+            verify=ssl_verify,
         )
         if (
             expects
             and process_cve_script(
-                expects, context={"response": res, "input": curl_parts}
+                expects, context={"response": res}
             )
             or (not expects and res.ok)
         ):
             context.stdout.print("Cracked")
             break
-        else:
-            if query_param:
-                for p in query_param:
-                    query_params[p] = next(dict_entry)

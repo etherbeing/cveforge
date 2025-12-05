@@ -627,6 +627,7 @@ dependencies = [
     { name = "stem" },
     { name = "typer" },
     { name = "watchdog" },
+    { name = "wordlist" },
     { name = "xmltodict" },
 ]
 
@@ -655,6 +656,7 @@ requires-dist = [
     { name = "stem", specifier = ">=1.8.2" },
     { name = "typer", specifier = ">=0.20.0" },
     { name = "watchdog", specifier = ">=6.0.0" },
+    { name = "wordlist", specifier = ">=1.0.1" },
     { name = "xmltodict", specifier = ">=1.0.2" },
 ]
 
@@ -2197,6 +2199,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/24/30/6b0809f4510673dc7
 wheels = [
     { url = "https://files.pythonhosted.org/packages/af/b5/123f13c975e9f27ab9c0770f514345bd406d0e8d3b7a0723af9d43f710af/wcwidth-0.2.14-py2.py3-none-any.whl", hash = "sha256:a7bb560c8aee30f9957e5f9895805edd20602f2d7f720186dfd906e82b4982e1", size = 37286, upload-time = "2025-09-22T16:29:51.641Z" },
 ]
+
+[[package]]
+name = "wordlist"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d2/16/ec3e0dba73d6661349a0ef8c6d99ac753ca14ac06abaa4574aca9a92b78c/wordlist-1.0.1.tar.gz", hash = "sha256:c1c6383943da8aed9273c2c6523573d47f1c7248df878d0c2ef7a6d658a33215", size = 3355, upload-time = "2014-05-15T08:47:27.974Z" }
 
 [[package]]
 name = "wrapt"

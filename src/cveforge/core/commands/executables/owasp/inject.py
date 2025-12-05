@@ -10,7 +10,6 @@ from urllib3.util import parse_url
 from cveforge import tcve_command, tcve_option, Context
 from cveforge.core.commands.executables.owasp.injections.xml import XMLSession
 from cveforge.core.commands.executables.owasp.utils import get_cookies, get_headers
-from cveforge.utils.format import cve_format
 
 
 @tcve_command(categories=["cwe-91", "cwe-611", "cwe-776", "cwe-643"])
@@ -76,7 +75,7 @@ def sql(
         print(f"Trying query: {malicius_query}")
         return requests.request(
             method=method,
-            url=cve_format(target),
+            url=target,
             params={"q": malicius_query},
             headers=get_headers(headers),
             cookies=get_cookies(cookies),
@@ -191,7 +190,7 @@ def xml(
         file.seek(0)
         response = requests.request(
             method=method,
-            url=cve_format(target),
+            url=target,
             headers=r_headers,
             cookies=r_cookies,
             files={file_name: ("file.xml", file, "text/xml")},
