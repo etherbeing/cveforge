@@ -353,6 +353,7 @@ async def main(context: Context, modules: dict[str, ModuleType]) -> None:
             async for command in command_syntax:  # run with each variant of the syntax
                 if not command:
                     break
+
                 asyncio.eager_task_factory(
                     context.event_loop,
                     forge_runner(context, command, available_callables, semaphore),

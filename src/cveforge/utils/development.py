@@ -154,8 +154,8 @@ class Watcher(FileSystemEventHandler):
         )
 
         pt_app = get_app_or_none()
-        if pt_app:
-            pt_app.exit(exception=asyncio.CancelledError())
+        if pt_app and pt_app.is_running:
+                pt_app.exit(exception=asyncio.CancelledError())
         self._elt_cui.cancel(_("Reloading CUI due to a file change"))
 
     def on_modified(self, event: FileSystemEvent):

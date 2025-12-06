@@ -138,7 +138,7 @@ the CVE Forge software and is mostly useful for when running quick commands.
 def run():
     app: typer.Typer = typer.Typer(name="cveforge", invoke_without_command=True)
     app.command()(cve_forge)
-    app(prog_name="cveforge", standalone_mode=True, args=sys.argv[1:])
+    app(prog_name="cveforge", standalone_mode=False, args=sys.argv[1:])
 
 
 if __name__ == "__main__":
