@@ -144,6 +144,8 @@ class Context:
     custom_history_path: Path
     protocol_name: Optional[str] = None
 
+    _cui_task: Optional[asyncio.Task[Any]] = None
+
     _console_session: PromptSession[str]
 
     _command_context: CommandContext = {"current_command": None}
@@ -187,8 +189,16 @@ class Context:
     def event_loop(self):
         return self._event_loop
 
+
     def set_event_loop(self, value: asyncio.AbstractEventLoop):
         self._event_loop = value
+    
+    @property
+    def cui_task(self):
+        return self._cui_task
+
+    def set_cui_task(self, task: asyncio.Task[Any]):
+        self._cui_task = task
 
     @property
     def console_session(self):

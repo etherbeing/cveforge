@@ -1,20 +1,23 @@
 """File to handle run the CVE Forge commands"""
 
+from asyncio import iscoroutinefunction
 from datetime import datetime
 from typing import (
     Any,
     Callable,
+    Coroutine,
     Iterable,
     Literal,
     Optional,
     Self,
 )
-
+from asgiref.sync import async_to_sync
 from django.utils.translation import gettext as _
 import typer
 
 from cveforge.core.commands.command_types import TCVECommand
 from cveforge.core.context import Context
+from cveforge.core.exceptions.ipc import ForgeException
 
 
 context = Context()
@@ -25,7 +28,7 @@ type CVEEvents = Literal["ready", "completed"]
 class tcve_base:
     def __init__(
         self,
-        callable: Optional[Callable[..., Any]] = None,
+        function: Optional[Callable[..., Any] | Coroutine[Any, Any, Any]] = None,
         name: Optional[str] = None,
         date: Optional[datetime] = None,
         related_softwares: Optional[Iterable[str]] = None,
@@ -38,7 +41,13 @@ class tcve_base:
         self._auto_start = auto_start
         self._name = name
         self._typer: Optional[typer.Typer] = None
-        self._callable = callable
+        if iscoroutinefunction(function):
+            self._callable: Optional[Callable[..., Any]] = async_to_sync(function)
+            self._callable.__name__ = function.__name__
+        elif callable(function):
+            self._callable: Optional[Callable[..., Any]] = function
+        else:
+            self._callable: Optional[Callable[..., Any]] = None
         self._hidden = hidden
         self._categories = categories
         self._related_ports = related_ports
@@ -99,6 +108,10 @@ class tcve_base:
         if self.cli:
             self.cli(prog_name=self.name, standalone_mode=False, args=args)
 
+    async def run_async(self, *args: Any):
+        if self.cli:
+            self.cli(prog_name=self.name, standalone_mode=False, args=args)
+
     def _register(self, into_typer: typer.Typer):
         if not self._typer and self.method:
             self._typer = typer.Typer(invoke_without_command=True)
@@ -107,9 +120,15 @@ class tcve_base:
                 self._typer, name=self.name, invoke_without_command=True
             )
 
-    def __call__(self, callable: Callable[..., Any], *args: Any) -> Any:
+    def __call__(self, function: Callable[..., Any]|Coroutine[Any, Any, Any], *args: Any) -> Any:
         if not self._callable and context.cli:
-            self._callable = callable
+            if iscoroutinefunction(function):
+                self._callable = async_to_sync(function)
+                self._callable.__name__ = function.__name__
+            elif callable(function):
+                self._callable = function
+            if not self._callable:
+                raise ForgeException(_("Invalid callable given"))
             self._register(context.cli)
         return self
 
@@ -150,13 +169,19 @@ class tcve_exploit(tcve_base):
         if not self._typer and self.method:
             into_typer.command(name=self.name)(self.method)
 
-    def __call__(self, callable: Callable[..., Any], *args: Any, **kwds: Any) -> Any:
+    def __call__(self, function: Callable[..., Any]|Coroutine[Any, Any, Any], *args: Any, **kwds: Any) -> Any:
         if (
             self._callable is None
             and self._exploit_command
             and self._exploit_command.cli
         ):
-            self._callable = callable
+            if iscoroutinefunction(function):
+                self._callable = async_to_sync(function)
+                self._callable.__name__ = function.__name__
+            elif callable(function):
+                self._callable = function
+            if not self._callable:
+                raise ForgeException(_("Invalid callable given"))
             run_cli = self._exploit_command.subcommand("run")
             if run_cli:
                 self._register(run_cli)
@@ -190,7 +215,9 @@ class tcve_option(tcve_base):
     Handles subparsers for exploits and commands
     """
 
-    def __init__(self, command: tcve_base, is_command: bool=False, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, command: tcve_base, is_command: bool = False, *args: Any, **kwargs: Any
+    ) -> None:
         super().__init__(*args, **kwargs)
         self._command = command
         self._is_command = is_command

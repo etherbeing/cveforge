@@ -127,10 +127,10 @@ def brute_force(
     """
     context = Context()
 
-    if wordlist:
-        dict_entry = dictionary_value(wordlist)
-    else:
-        dict_entry = None
+    # if wordlist:
+    #     dict_entry = dictionary_value(wordlist)
+    # else:
+    #     dict_entry = None
     while True:
         res = request(
             method,

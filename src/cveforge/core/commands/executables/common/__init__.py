@@ -8,17 +8,17 @@ import pathlib
 import platform
 import shutil
 import stat
-from functools import lru_cache
 import subprocess
+import sys
+from functools import lru_cache
 from typing import Literal
 
 import typer
+from rich.markdown import Markdown
 
 from cveforge.core.commands.command_types import TCVECommand
 from cveforge.core.commands.run import tcve_command
 from cveforge.core.context import Context
-from cveforge.core.exceptions.ipc import ForgeException
-from rich.markdown import Markdown
 
 logging.debug("Initializing common commands...")
 
@@ -28,8 +28,7 @@ logging.debug("Initializing common commands...")
 )
 def cli_exit():
     """Exit the CLI"""
-    context = Context()
-    raise ForgeException(code=context.EC_EXIT)
+    sys.exit(Context().RT_OK)
 
 
 @lru_cache
@@ -47,15 +46,13 @@ def cli_help():
     context.stdout.print(_get_help(context))
 
 
-@tcve_command(name="restart")
-def reload_process():
+@tcve_command()
+def restart():
     """
     Reload the current process by spawning a detached child process
     and terminating the current one.
     """
-    context: Context = Context()
-    raise ForgeException(code=context.EC_RELOAD)
-
+    sys.exit(Context().EC_RELOAD)
 
 @tcve_command(name="env")
 def command_env():
@@ -72,7 +69,10 @@ def command_env():
 
 
 @tcve_command()
-def log(message: str=typer.Argument(), level: Literal["DEBUG", "INFO", "ERROR", "WARNING"] = typer.Option(default="DEBUG")):
+def log(
+    message: str = typer.Argument(),
+    level: Literal["DEBUG", "INFO", "ERROR", "WARNING"] = typer.Option(default="DEBUG"),
+):
     """
     Log the given message to the console as it would be logged to the file, this is useful for testing logging capabilities
     """

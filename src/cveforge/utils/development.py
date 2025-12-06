@@ -1,9 +1,9 @@
 import asyncio
 import hashlib
 import json
-import logging
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 from django.utils.translation import gettext as _
 import pathspec
 from pathspec.patterns.gitwildmatch import GitWildMatchPattern
@@ -15,10 +15,9 @@ from watchdog.events import (
     FileDeletedEvent,
     FileMovedEvent,
 )
-
+from prompt_toolkit.application import get_app_or_none
 from watchdog.observers.api import BaseObserver
 from watchdog.observers import Observer
-from prompt_toolkit.application.current import get_app_or_none
 
 from cveforge.core.context import Context
 from cveforge.core.exceptions.ipc import ForgeException
@@ -39,11 +38,8 @@ class Watcher(FileSystemEventHandler):
         self.context = context
         self.pathspec = self.parse_gitignore()
         self.generate_folder_schema()
-        tasks = asyncio.tasks.all_tasks(self.context.event_loop)
-        for task in tasks:
-            if task.get_name() == self.context.ELT_CUI:
-                self._elt_cui = task
-                break
+        assert context.cui_task
+        self._elt_cui: asyncio.Task[Any] = context.cui_task
 
     def get_file_integrity(self, file_path: Path):
         """
@@ -136,9 +132,7 @@ class Watcher(FileSystemEventHandler):
         path = path.relative_to(self.context.BASE_DIR)
         return self.pathspec.match_file(path)
 
-    def live_reload(
-        self, event: FileSystemEvent
-    ):
+    def live_reload(self, event: FileSystemEvent):
         """Trigger the reload"""
         trigger_path = Path(str(event.src_path))
         if event.is_directory or self.is_path_ignored(trigger_path):
@@ -158,10 +152,10 @@ class Watcher(FileSystemEventHandler):
             justify="center",
             width=self.context.stdout.width,
         )
-        logging.debug("Waiting for prompt thread to be ended gratefully...")
-        app = get_app_or_none()
-        if app:
-            app.exit(exception=ForgeException(code=self.context.EC_RELOAD))
+
+        pt_app = get_app_or_none()
+        if pt_app:
+            pt_app.exit(exception=asyncio.CancelledError())
         self._elt_cui.cancel(_("Reloading CUI due to a file change"))
 
     def on_modified(self, event: FileSystemEvent):
@@ -196,3 +190,6 @@ class Watcher(FileSystemEventHandler):
 
     def join(self):
         self.observer.join()
+
+    def set_task_cui(self, task: asyncio.Task[Any]):
+        self._elt_cui = task

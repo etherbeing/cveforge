@@ -41,6 +41,7 @@ def http(
     proxy: Optional[str] = typer.Option(None, "-p", "--proxy"),
     data: Optional[str] = typer.Option(None, "-d", "--data"),
     json_data: Optional[str] = typer.Option(None, "-j", "--json"),
+    silent: bool = typer.Option(False)
 ):
     response = requests.request(
         method,
@@ -54,7 +55,8 @@ def http(
         data=data,
         json=json.loads(json_data) if json_data else None,
     )
-    if response.headers.get("Content-Type", "").startswith("application/json"):
-        Context().stdout.print_json(response.text)
-    else:
-        Context().stdout.print(response.text)
+    if not silent:
+        if response.headers.get("Content-Type", "").startswith("application/json"):
+            Context().stdout.print_json(response.text)
+        else:
+            Context().stdout.print(response.text)

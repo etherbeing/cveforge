@@ -1,14 +1,15 @@
 from types import TracebackType
 from typing import Optional
-from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
+from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn, ProgressColumn
 
 
 class ForgeConsole:
     """Wrapper around the rich console for easier of usage"""
 
-    def __init__(self) -> None:
+    def __init__(self, no_progress: bool=False) -> None:
         self._progress: Progress
         self._default_task_id: TaskID
+        self._no_progress = no_progress
 
     def print(self, msg: str, *args: str, task_id: Optional[TaskID] = None):
         self._progress.update(task_id or self._default_task_id, description=msg)
@@ -16,9 +17,12 @@ class ForgeConsole:
     def __enter__(
         self,
     ):
-        self._progress = Progress(
+        args: list[str | ProgressColumn] = [
             SpinnerColumn(),
             TextColumn("{task.description}"),
+        ]
+        self._progress = Progress(
+            *args,
             transient=False,
             expand=True,
         ).__enter__()

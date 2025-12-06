@@ -9,46 +9,52 @@ import asyncio
 import logging
 import pathlib
 import sys
-from typing import Literal, NoReturn, Optional
+
+from typing import Annotated, Literal, NoReturn, Optional
+
+import typer
 from asgiref.sync import async_to_sync
 from django.utils.translation import gettext as _
-import typer
 
+from cveforge import entrypoint as entrypoint
 from cveforge.core.context import Context
 from cveforge.utils.development import Watcher
 from cveforge.utils.module import refresh_modules
-
-from cveforge import entrypoint as entrypoint
 
 
 async def program(context: Context, live_reload: bool):
     assert context.event_loop is not None, _(
         "Main event loop wasn't configured correctly"
     )
-    context.get_commands.cache_clear()
-    modules = refresh_modules(
-        str(context.BASE_DIR.absolute()),
-        exclude=[context.BASE_DIR / pathlib.Path("core/context.py")],
-    )
 
     # Running the main process in a child process to be able to handle live reload and other IPC events
     watcher: Optional[Watcher] = None
     while True:
         try:
+            context.get_commands.cache_clear()
+            modules = refresh_modules(
+                str(context.BASE_DIR.absolute()),
+                exclude=[context.BASE_DIR / pathlib.Path("core/context.py")],
+            )
+
             elt_cui = context.event_loop.create_task(
                 modules["cveforge.entrypoint"].main(context=context, modules=modules),
-                name=context.ELT_CUI,
             )
+            context.set_cui_task(elt_cui)
 
             if live_reload and not watcher:
                 watcher = Watcher(context=context)
                 watcher.observer.name = "CVE Forge: File Observer"
                 watcher.start(context.BASE_DIR)
-
+            elif watcher:
+                watcher.set_task_cui(elt_cui)
             await elt_cui
             break
         except asyncio.CancelledError:
-            continue
+            if context.cui_task and context.cui_task.cancelled():
+                continue
+            else:
+                break
 
 
 async def main(
@@ -89,7 +95,7 @@ async def main(
                 context.stdout.print(
                     f"[red]Invalid command given, {args} is not recognized as an internal command of CVE Forge[/red]"
                 )
-                exit(context.RT_INVALID_COMMAND)
+                sys.exit(context.RT_INVALID_COMMAND)
         else:
             await context.event_loop.create_task(
                 program(context, live_reload), name=context.ELT_PROGRAM
@@ -99,7 +105,7 @@ async def main(
             context.stdout.print(
                 "[green] 🚀💻 See you later, I hope you had happy hacking! 😄[/green]"
             )
-            exit(context.RT_OK)
+            sys.exit(context.RT_OK)
 
 
 def cve_forge(
@@ -117,8 +123,7 @@ the CVE Forge software and is mostly useful for when running quick commands.
             """,
         default=None,
     ),
-    # trunk-ignore(ruff/B008)
-    args: Optional[list[str]] = typer.Argument(default=None),
+    args: Annotated[Optional[list[str]], typer.Argument()] = None,
 ):
     return async_to_sync(main, force_new_loop=False)(
         live_reload=live_reload,
@@ -133,7 +138,7 @@ the CVE Forge software and is mostly useful for when running quick commands.
 def run():
     app: typer.Typer = typer.Typer(name="cveforge", invoke_without_command=True)
     app.command()(cve_forge)
-    app(prog_name="cveforge", standalone_mode=False, args=sys.argv[1:])
+    app(prog_name="cveforge", standalone_mode=True, args=sys.argv[1:])
 
 
 if __name__ == "__main__":

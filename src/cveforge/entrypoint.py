@@ -2,20 +2,18 @@
 Entrypoint of the software handle run logic and call the needed modules from here
 """
 
-# import asyncio
+import asyncio
 import difflib
 import getpass
 import os
 import platform
 import shlex
 import socket
-import subprocess
 from types import ModuleType
 from click import MissingParameter
 from django.utils.timezone import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, List, Optional, Self, Tuple, cast
-
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer, NestedCompleter
@@ -27,10 +25,10 @@ from prompt_toolkit.history import FileHistory, DummyHistory
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.mouse_events import MouseEvent
 from prompt_toolkit.styles import Style
+from django.utils.translation import gettext as _
 from pygments.lexers.html import HtmlLexer
 from cveforge.core.commands.command_types import TCVECommand
 from cveforge.core.context import Context
-from cveforge.core.exceptions.ipc import ForgeException
 from cveforge.utils.format import cve_format
 from cveforge.utils.graphic import get_banner
 
@@ -233,11 +231,51 @@ def get_message(context: Context) -> List[OneStyleAndTextTuple]:
     ]
 
 
+async def forge_runner(
+    context: Context,
+    command: str,
+    callables: dict[str, TCVECommand],
+    semaphore: asyncio.Semaphore,
+):
+    async with semaphore:
+        base = shlex.split(command)
+        args = None
+        if len(base) > 1:
+            args = base[1:]
+        base = base[0]
+        cve_command: Optional[TCVECommand] = callables.get(base.strip(), None)
+        if not cve_command and base.startswith(
+            context.SYSTEM_COMMAND_TOKEN
+        ):  # defaults to CLI
+            command = command.removeprefix(context.SYSTEM_COMMAND_TOKEN).strip()
+            await asyncio.create_subprocess_shell(
+                command,
+                stdin=context.console_session.input.fileno(),
+            )
+        elif cve_command:
+            context.command_context.update({"current_command": cve_command})
+            await cve_command.get("command").run_async(*(args or []))
+        else:
+            closest_matches = difflib.get_close_matches(base, callables.keys(), n=1)
+            if closest_matches:
+                context.stderr.print(
+                    f"""⚠️ Unknown command given, perhaps you meant [yellow]{
+                        closest_matches[0]
+                    }[/yellow]?
+                """
+                )
+            else:
+                context.stderr.print(
+                    f"❗💥 Unknown command given, use help to know more...\nOptions are:\n  {', '.join(callables.keys())}"
+                )
+
+
 async def main(context: Context, modules: dict[str, ModuleType]) -> None:
     """
     Handle prompt and CLI as well as other program executable behavior.
     """
     os.system("clear")
+    assert context.event_loop, _("Event loop is required")
     local_commands, local_aliases = context.get_commands()
     available_callables: dict[str, TCVECommand] = local_commands | local_aliases
     completer: CustomCompleter = CustomCompleter.from_nested_dict(
@@ -287,8 +325,6 @@ async def main(context: Context, modules: dict[str, ModuleType]) -> None:
         new_line_start=True,
         justify="center",
         no_wrap=True,
-        # fullscreen
-        # width=
     )
 
     context.stdout.print(
@@ -299,76 +335,35 @@ async def main(context: Context, modules: dict[str, ModuleType]) -> None:
             session.default_buffer.history = default_session_history
             command: Optional[str] = session.prompt(
                 get_current_message,
-                in_thread=True, # Mandatory as we are already in an event loop
+                in_thread=True,  # Mandatory as we are already in an event loop
                 refresh_interval=0.25,
                 is_password=False,
+                # try to handle the problem of ignored sigint
+                set_exception_handler=False,
+                handle_sigint=False,
             )
             if not command:
                 continue
-            # context.stdout.print()  # just a new line after each command
             session.default_buffer.history = DummyHistory()  # This makes the programs to run without history enabled useful for when we are prompting for passwords
 
             command = command.strip()
             command_syntax = cve_format(command)
 
-            # sem = asyncio.Semaphore(50)
-            # tasks: list[asyncio.Task[Any]] = []
+            semaphore = asyncio.Semaphore(10)
             async for command in command_syntax:  # run with each variant of the syntax
                 if not command:
                     break
-                # async def m():
-                #     pass
-                # tasks.append(asyncio.create_task(m))
-                base = shlex.split(command)
-                args = None
-                if len(base) > 1:
-                    args = base[1:]
-                base = base[0]
-                cve_command: Optional[TCVECommand] = available_callables.get(
-                    base.strip(), None
+                asyncio.eager_task_factory(
+                    context.event_loop,
+                    forge_runner(context, command, available_callables, semaphore),
                 )
-                if not cve_command and base.startswith(
-                    context.SYSTEM_COMMAND_TOKEN
-                ):  # defaults to CLI
-                    command = command.removeprefix(context.SYSTEM_COMMAND_TOKEN).strip()
-                    subprocess.call(
-                        command,
-                        stdin=context.console_session.input.fileno(),
-                        # trunk-ignore(bandit/B602)
-                        shell=True,  # lets remember this is currently a cli program so OS injection is intended :-) (unauthorized NOT)
-                    )
-                elif cve_command:
-                    context.command_context.update({"current_command": cve_command})
-                    cve_command.get("command").run(*(args or []))
-                else:
-                    closest_matches = difflib.get_close_matches(
-                        base, available_callables.keys(), n=1
-                    )
-                    if closest_matches:
-                        context.stderr.print(
-                            f"""⚠️ Unknown command given, perhaps you meant [yellow]{
-                                closest_matches[0]
-                            }[/yellow]?
-                        """
-                        )
-                    else:
-                        context.stderr.print(
-                            f"❗💥 Unknown command given, use help to know more...\nOptions are:\n  {', '.join(available_callables.keys())}"
-                        )
-            # results = await asyncio.gather(*tasks)
         except (KeyboardInterrupt, EOFError):
             context.stderr.print("❗ Use 'exit' to quit.")
-        except ForgeException as exc:
-            context.exit_status = exc.code
-            return
-        except SystemExit as exc:
-            if exc.code == context.EC_CONTINUE:
-                continue
-            else:
-                raise exc
         except MissingParameter as exc:
             context.stderr.print(exc.format_message())
             continue
-        except Exception:
-            context.stderr.print_exception()
-            continue
+        except SystemExit as ex:
+            if ex.code == context.EC_RELOAD:
+                raise asyncio.CancelledError() from ex
+            else:
+                break
